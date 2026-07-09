@@ -150,6 +150,9 @@ Three fixes applied (build green, relaunched, awaiting Alex's re-check):
 3. Removed SwiftUI `.shadow()`: it rasterizes a hosted NSView as its bounding rect. Instead
    `panel.hasShadow = true` + `panel.invalidateShadow()` in `show()`, so macOS derives a circular
    shadow from the masked content's alpha.
+   **SUPERSEDED 2026-07-09 (see the lens-hub entry below): the window shadow is snapshotted once
+   from the content alpha, so an animating ring drags a stale dark ring. `hasShadow` is now false
+   and the shadow is a blurred RingShape drawn inside the view.**
 
 ## 2026-07-09 (cont.): Task 9 COMMITTED; Task 10 (event tap) awaiting hands-on test
 
@@ -223,6 +226,7 @@ Two ordering bugs found and fixed in `OverlayPanelController` while doing this:
    timer.
 2. `invalidateShadow()` ran while the ring was still at 72 percent scale, snapshotting a shadow
    for the small circle. Now called again 0.42s later, once the spring settles.
+   **SUPERSEDED: both invalidateShadow calls deleted. Window shadow abandoned entirely.**
 
 ## 2026-07-09 (cont.): Task 12 committed; glass annulus + larger canvas
 
@@ -248,10 +252,37 @@ see through."** Both done (built, running, NOT committed):
   fired a wedge. Dead zone raised to 35 so the see-through hole IS exactly the cancel target.
   Affordance and behavior are now the same shape.
 
-BLOCKED (visual judgment, Alex must do): does the overshoot now complete without clipping, is the
-document visible through the hub, and does center-release feel like an obvious abort. Also still
-open: is the 6 degree counter-rotation delightful or gimmicky (one line to remove). Then commit,
-and finish plan Tasks 13 (settings) and 14 (onboarding + remove debug menu items). Note: testing
-onboarding needs `tccutil reset Accessibility ai.symbiotica.Snip`, which revokes Alex's current
-grant, so ask before running it.
+## 2026-07-09 (cont.): view-drawn shadow, lens hub, asymmetric exit
+
+Alex reported three things: wanted a discreet magnifier/glass feel inside the hub, saw a heavy
+dark border appear at the START of the bloom on the circle and ring outline, and asked to take
+care of the disappear animation. All three fixed (built, running, NOT committed).
+
+**Root cause of the dark border: the WINDOW shadow.** `panel.hasShadow = true` makes the
+WindowServer snapshot a shadow from the content's alpha at one instant. `invalidateShadow()` ran
+while the ring was at 72 percent scale, so a shadow sized for the small circle stayed baked in
+while the ring sprang outward past it, clearing only when the 0.42s re-invalidate fired.
+
+Fix, which solved the magnifier request at the same time:
+- `panel.hasShadow = false`; both `invalidateShadow()` calls deleted.
+- The shadow is now a blurred `RingShape` (donut, eoFill) drawn INSIDE the view, behind the
+  vibrancy: `.fill(.black.opacity(0.26)).blur(radius: 13).offset(y: 6)`. Safe to blur because it
+  is a plain Shape, not the hosted NSVisualEffectView. It springs WITH the ring instead of lagging.
+- That donut's inner edge bleeds softly into the hub, producing the lens bevel. One shape gives
+  both the drop shadow and the magnifier edge. Hub also gained a `white.opacity(0.03)` fill and a
+  rim lit from topLeading, staying genuinely see-through.
+
+**Disappear animation:** the real flaw was that a single `isVisible` bool gives "hidden" exactly
+one definition, so the exit was forced to be the entrance reversed (un-rotating, labels retracting
+to the hub). Added `RadialViewModel.isDismissing` to get two distinct hidden states:
+enter-from (scale 0.72, rotation -6, labels at 55 percent radius) and exit-to (scale 0.94,
+rotation 0, labels in place, just fading) over 0.14s easeOut.
+
+BLOCKED (visual judgment, Alex must do): is the dark rim gone at the start of the bloom, does the
+hub bevel read as a lens rather than dirt, does the exit feel like leaving rather than rewinding.
+If the shadow's inner bleed is too heavy in the hole, lower `blur(13)` or shrink the donut's inner
+edge. Still open: is the 6 degree counter-rotation delightful or gimmicky (one line to remove).
+Then commit, and finish plan Tasks 13 (settings) and 14 (onboarding + remove debug menu items).
+Note: testing onboarding needs `tccutil reset Accessibility ai.symbiotica.Snip`, which revokes
+Alex's current grant, so ask before running it.
 
