@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var engine: EventTapEngine!
     private let paster = PasteEngine()
     private var libraryWindow: NSWindow?
+    private var settingsWindow: NSWindow?
     let model = AppModel()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -28,6 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let menu = NSMenu()
         menu.addItem(withTitle: "Snippets…", action: #selector(openLibrary), keyEquivalent: "")
+        menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         menu.addItem(NSMenuItem.separator())
         menu.addItem(withTitle: "Grant Accessibility…", action: #selector(grantAccessibility), keyEquivalent: "")
         menu.addItem(withTitle: "Smoke: paste \"hello\"", action: #selector(smokePaste), keyEquivalent: "")
@@ -64,9 +66,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         libraryWindow?.makeKeyAndOrderFront(nil)
     }
 
+    @objc private func openSettings() {
+        if settingsWindow == nil {
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 260),
+                                  styleMask: [.titled, .closable],
+                                  backing: .buffered, defer: false)
+            window.title = "Snip Settings"
+            window.contentView = NSHostingView(
+                rootView: SettingsView(model: model, onConfigChanged: { [weak self] in
+                    self?.restartEventTap()
+                }))
+            window.isReleasedWhenClosed = false
+            window.center()
+            settingsWindow = window
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        settingsWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    /// The tap's event mask and trigger rules are fixed at creation, so a config change rebuilds it.
+    private func restartEventTap() {
+        engine?.stop()
+        startEventTap()
+    }
+
     private func startEventTap() {
         engine = EventTapEngine(
-            config: TriggerConfig(),
+            config: model.triggerConfig,
             permissions: permissions,
             onBloom: { [weak self] anchor in self?.overlay.show(atQuartz: anchor) },
             onPointer: { [weak self] selection in self?.overlay.update(selection: selection) },
@@ -86,8 +112,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func grantAccessibility() {
         permissions.requestTrust()
-        engine?.stop()
-        startEventTap()
+        restartEventTap()
     }
 
     /// Blooms after a delay so the tester can hand focus to another app first —

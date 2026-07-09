@@ -6,7 +6,12 @@ import SnipKit
 
 @Observable
 final class AppModel {
+    private static let triggerConfigKey = "triggerConfig"
+
     var library: SnippetLibrary
+    var triggerConfig: TriggerConfig {
+        didSet { persistTriggerConfig() }
+    }
     private let store: SnippetStore
 
     init() {
@@ -14,6 +19,18 @@ final class AppModel {
             .appendingPathComponent("Snip", isDirectory: true)
         store = SnippetStore(fileURL: dir.appendingPathComponent("snippets.json"))
         library = (try? store.load()) ?? .empty
+
+        if let data = UserDefaults.standard.data(forKey: Self.triggerConfigKey),
+           let config = try? JSONDecoder().decode(TriggerConfig.self, from: data) {
+            triggerConfig = config
+        } else {
+            triggerConfig = TriggerConfig()
+        }
+    }
+
+    private func persistTriggerConfig() {
+        guard let data = try? JSONEncoder().encode(triggerConfig) else { return }
+        UserDefaults.standard.set(data, forKey: Self.triggerConfigKey)
     }
 
     func snippet(inSlot slot: Int) -> Snippet? {
