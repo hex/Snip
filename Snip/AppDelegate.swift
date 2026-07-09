@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let permissions = PermissionsCoordinator()
     private var overlay: OverlayPanelController!
     private var engine: EventTapEngine!
+    private let paster = PasteEngine()
     let model = AppModel()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -58,13 +59,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !engine.start() { permissions.requestTrust() }
     }
 
-    /// Real insertion arrives with PasteEngine; for now prove the gesture resolves to a snippet.
     private func fire(_ selection: RadialSelection) {
-        guard case let .wedge(index) = selection, let snippet = model.snippet(inSlot: index) else {
-            NSLog("[Snip] cancelled")
-            return
-        }
-        NSLog("[Snip] FIRE slot %d: %@", index, snippet.label)
+        guard case let .wedge(index) = selection, let snippet = model.snippet(inSlot: index) else { return }
+        paster.insert(snippet)
     }
 
     @objc private func grantAccessibility() {

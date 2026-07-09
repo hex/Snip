@@ -55,7 +55,8 @@ struct RadialMenuView: View {
     static let ringSize: CGFloat = 236
     private let hubFraction: CGFloat = 0.30
     private let labelRadius: CGFloat = 80
-    private let accent = Color(red: 1.0, green: 0.48, blue: 0.40)
+    /// The user's System Settings accent. Dynamic, so it resolves against the panel's dark appearance.
+    private let accent = Color(nsColor: .controlAccentColor)
 
     var body: some View {
         ZStack {
