@@ -337,10 +337,44 @@ painted lens and true refraction is small; the gap between "asks for Accessibili
 Accessibility AND to record your screen" is enormous. Private API holding up the signature UI is
 the worse trade of the two remaining.
 
-BLOCKED (visual judgment, Alex must do): hold middle mouse over text and look at the hub. Does the
-text bulge/magnify (backgroundFilters still works across windows) or look unchanged (restricted to
-in-window content)? Decide from evidence. Still open: is the 6 degree counter-rotation delightful
-or gimmicky. Then commit, and finish plan Tasks 13 (settings) and 14 (onboarding + remove debug
-menu items). Note: testing onboarding needs `tccutil reset Accessibility ai.symbiotica.Snip`, which
-revokes Alex's current grant, so ask before running it.
+## 2026-07-09 (cont.): backgroundFilters DEAD; CABackdropLayer probed and wired
+
+**Spike result: `CALayer.backgroundFilters` produced no distortion.** Alex's screenshot over a
+Chinese spreadsheet showed the text reading straight through the hub at unchanged scale.
+
+Now understood, and it is structural, not a macOS 26 restriction: `backgroundFilters` filters the
+content beneath the layer WITHIN ITS OWN WINDOW's backing store. Our window is transparent and the
+hub is a literal hole, so there are zero in-window pixels for Core Image to bend. The API was never
+reaching other apps' pixels. Only the WindowServer has those, and it exposes them via
+`NSVisualEffectView`'s blur or, privately, via `CABackdropLayer`.
+
+Alex chose the private `CABackdropLayer` path (over ScreenCaptureKit, which would need a Screen
+Recording prompt on a snippet app). Rewrote `Snip/Overlay/LensDistortionView.swift`: it holds the
+WindowServer's copy of the backdrop, so `layer.filters` (which act on a layer's OWN content) can
+distort it, unlike backgroundFilters which had nothing.
+
+**Probed the runtime instead of trusting header dumps** (`scratchpad/probe2.swift`). On macOS 26:
+- REAL: `windowServerAware`, `scale`, **`zoom`**, `captureOnly`
+- DO NOT EXIST: `disableBlur`, `blurRadius`. I had been writing two dead keys.
+- `setValue(_:forKey:)` on a bogus key does NOT raise. CALayer stores arbitrary keys, so a
+  withdrawn property degrades to a no-op, never a crash. Confirmed with `totallyBogusKey`.
+
+`zoom` is native compositor magnification, exactly what a magnifier wants. Current settings:
+`zoom = 1.18` for magnification plus a `CIBumpDistortion` at scale 0.32 for rim curvature. Two
+independent mechanisms, so losing either still leaves a lens. Guarded by
+`NSClassFromString("CABackdropLayer")`; if nil, the painted lens above it still carries the look.
+Built, running, NOT committed.
+
+Lesson: the probe changed the design. Confident reasoning about an undocumented API would have
+shipped two dead writes and missed the one property that does the job. When a question is
+empirical, go measure it.
+
+BLOCKED (visual judgment, Alex must do): hold middle mouse over dense text. Does it magnify about
+18 percent and bow at the rim? Is the hub blurred (would mean the backdrop arrives with vibrancy
+applied)? If still flat, `CABackdropLayer` likely needs a groupName or host relationship we do not
+have, and the recommendation reverts to keeping the painted lens rather than escalating to Screen
+Recording. Still open: is the 6 degree counter-rotation delightful or gimmicky. Then commit, and
+finish plan Tasks 13 (settings) and 14 (onboarding + remove debug menu items). Note: testing
+onboarding needs `tccutil reset Accessibility ai.symbiotica.Snip`, which revokes Alex's current
+grant, so ask before running it.
 
