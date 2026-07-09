@@ -393,9 +393,31 @@ hub lived inside the ring, delaying the ring held the lens hostage at `opacity(0
 `.delay()` escapes that. Independent timelines require independent branches. Hub is drawn last so
 its rim caps the spokes where they meet the hole.
 
-BLOCKED (visual judgment, Alex must do): is 1.5x zoom too strong (text may distort past
-legibility), and does the 100ms ring delay read as intentional sequencing or as lag (70ms is the
-likely sweet spot if the latter). Meanwhile continuing with plan Tasks 13 (settings) and 14
-(onboarding + remove debug menu items). Note: testing onboarding needs
-`tccutil reset Accessibility ai.symbiotica.Snip`, which revokes Alex's current grant, so ask first.
+## 2026-07-09 (cont.): ALL 14 PLAN TASKS DONE. v1 feature complete
+
+Task 13 committed (`a34de94`): settings window, `TriggerConfig` persisted to UserDefaults, toggling
+rebuilds the tap (a CGEventTap's mask and trigger rules are frozen at creation).
+
+Task 14 committed (`7802a3a`): onboarding window polls `AXIsProcessTrusted()` once a second and
+starts the tap on grant, so no relaunch. Stuck-ring watchdog added to EventTapEngine. Debug menu
+items (smoke paste, debug bloom) removed.
+
+Watchdog subtlety worth keeping: after 4s it does NOT just close the ring. It re-checks
+`CGEventSource.buttonState(.combinedSessionState, button: .center)`, the hardware's view of whether
+the finger is still down, and rearms if it is. Trusting our own `isOpen` flag would punish a user
+who legitimately holds the button while thinking. Ground truth beats internal bookkeeping whenever
+the two can drift, and with a tap the OS can silently disable, they can.
+
+State: 25 SnipKit tests green, app builds and runs, 15 feature commits on `design/snip-brainstorm`.
+
+BLOCKED on Alex, two items:
+1. Visual verdicts: is 1.5x lens zoom too strong, does the 100ms ring delay read as sequencing or
+   lag (70ms if lag), and does toggling middle-mouse off in Settings actually disable the trigger.
+2. Onboarding is the one path untestable without breaking his setup. Verifying it needs
+   `tccutil reset Accessibility ai.symbiotica.Snip`, which REVOKES his current grant. Needs his
+   explicit go-ahead. Until then the first-run flow ships unverified.
+
+Remaining beyond the plan (deferred by the spec, not bugs): v1.5 search palette (the `keyboardMode`
+seam is already built into OverlayPanel), v2 per-app rings, hotkey fallback trigger, per-app
+exclusion list, Developer ID notarization + Sparkle + licensing.
 
