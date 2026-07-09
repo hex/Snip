@@ -1,0 +1,38 @@
+name: Snip
+options:
+  bundleIdPrefix: ai.symbiotica
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+packages:
+  SnipKit:
+    path: SnipKit
+targets:
+  Snip:
+    type: application
+    platform: macOS
+    sources:
+      - path: Snip
+    dependencies:
+      - package: SnipKit
+    info:
+      path: Snip/Info.plist
+      properties:
+        LSUIElement: true
+        CFBundleName: Snip
+        CFBundleDisplayName: Snip
+        NSHumanReadableCopyright: ""
+    entitlements:
+      path: Snip/Snip.entitlements
+      properties:
+        com.apple.security.app-sandbox: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ai.symbiotica.Snip
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "5.9"
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: "7G4UQW35EL"
+        ENABLE_HARDENED_RUNTIME: YES
+        GENERATE_INFOPLIST_FILE: NO

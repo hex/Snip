@@ -75,3 +75,29 @@ and manual end-to-end verification (watch snippets paste into TextEdit/Mail/VS C
 autonomously completable. Order: XcodeGen project + menu-bar agent → AX smoke test →
 overlay panel → EventTapEngine → PasteEngine → library/settings/onboarding.
 
+## 2026-07-09 (cont.) — App layer started, blocked on manual verify
+
+Alex chose "guide me through the app layer interactively." Prereqs confirmed on his Mac:
+XcodeGen 2.45.3, Xcode 26.5, valid signing identities. **Signing team = 7G4UQW35EL**
+(Alexandru Geana personal; has Developer ID for later notarization).
+
+Wrote plan Task 1+2 (folded into one buildable increment):
+`project.yml` (XcodeGen), `Snip/main.swift` (explicit NSApplication accessory boot, not
+@main), `Snip/AppDelegate.swift` (NSStatusItem + Grant-Accessibility + smoke-paste actions),
+`Snip/Permissions/PermissionsCoordinator.swift`. XcodeGen generates Info.plist + entitlements
+from project.yml (gitignored — project.yml is source of truth). **Compiles clean unsigned**
+(`xcodebuild ... CODE_SIGNING_ALLOWED=NO` → BUILD SUCCEEDED). NOT yet committed — waiting to
+verify end-to-end first.
+
+Signed build + launch DONE by me (superseding "blocked on signed run"):
+`xcodebuild -derivedDataPath ./DerivedData build` → BUILD SUCCEEDED. Automatic signing resolved
+to cert "Apple Development: Alex Geana (77PGN87CWD)" under TeamIdentifier 7G4UQW35EL; codesign
+confirms Identifier=ai.symbiotica.Snip. App launches and stays resident (menu-bar agent).
+Run it: `open ./DerivedData/Build/Products/Debug/Snip.app`.
+
+STILL BLOCKED (GUI-only, Alex must do): click ✂ → "Grant Accessibility…", toggle Snip ON in
+System Settings ▸ Privacy & Security ▸ Accessibility, then verify `Smoke: paste "hello"` inserts
+into TextEdit. Diagnostics agreed: beep = AXIsProcessTrusted() false; silence = CGEvent.post
+silent no-op (same root cause). Once confirmed → commit Task 1+2, then Task 9 (overlay panel).
+Next files to write: `Snip/Overlay/{OverlayPanel,OverlayPanelController,RadialViewModel,RadialMenuView,VisualEffectView}.swift`.
+

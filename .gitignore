@@ -22,6 +22,9 @@ build/
 DerivedData/
 Snip.xcodeproj/
 *.xcuserstate
+# XcodeGen-generated from project.yml (single source of truth)
+Snip/Info.plist
+Snip/Snip.entitlements
 
 # OS files
 .DS_Store
