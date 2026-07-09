@@ -46,7 +46,32 @@ snippet's text at the cursor of whatever app is frontmost. Aesthetic north star:
   https://claude.ai/code/artifact/5b5af153-cc7a-4aca-9dc1-5490c3db43c4
   source: scratchpad/snip-radial-mockups.html
 
-**Still open (before spec):** snippet content model (plain text vs placeholders/
-variables vs rich text); insertion mechanism (synthetic keystrokes vs paste-and-restore
-vs Accessibility API); tech stack (native Swift/AppKit expected); persistence; mgmt UI.
+**Resolved before spec:** content model = plain text + `{date}/{time}/{clipboard}` + `$|`
+caret; insertion = paste-and-restore (changeCount-guarded); stack = AppKit shell + display-only
+SwiftUI overlay (Option B, Fable-reviewed); persistence = Codable JSON.
+
+**Artifacts committed (branch `design/snip-brainstorm`):**
+- Spec: `docs/superpowers/specs/2026-07-09-snip-design.md`
+- Plan: `docs/superpowers/plans/2026-07-09-snip-v1.md` (14 TDD tasks; SnipKit package + app target)
+
+## 2026-07-09 (cont.) — Executing plan: SnipKit slice DONE
+
+Chose to build the pure-logic package first (fully autonomous, no Team ID / Accessibility
+needed). Structure: `SnipKit/` SwiftPM package (Foundation-only) tested via `swift test`.
+
+**Done — plan Tasks 1,3–7, strict RED→GREEN, one commit each, 21 tests green:**
+- `Snippet` / `SnippetLibrary` (Codable, schemaVersion)
+- `SnippetStore` (atomic JSON, empty-when-missing, migrate hook)
+- `TokenResolver` (tokens + grapheme-aware `$|`; `{time}` asserted by components to dodge
+  ICU U+202F narrow-no-break-space before AM/PM)
+- `RadialSession` (pointer→wedge, dead-zone, hysteresis)
+- `ScreenGeometry` (Quartz↔Cocoa Y-flip + ring clamping)
+- Toolchain: Swift 6.3.2 / macOS 26.5.1; `Package.swift` pinned to tools-version 5.9 (avoid
+  strict-concurrency noise on injected closures). Run tests: `swift test --package-path SnipKit`.
+
+**Remaining — plan Tasks 2, 8–14 (app target).** BLOCKED ON ALEX'S MACHINE:
+needs `DEVELOPMENT_TEAM` id in project.yml, `brew install xcodegen`, granting Accessibility,
+and manual end-to-end verification (watch snippets paste into TextEdit/Mail/VS Code). Not
+autonomously completable. Order: XcodeGen project + menu-bar agent → AX smoke test →
+overlay panel → EventTapEngine → PasteEngine → library/settings/onboarding.
 
