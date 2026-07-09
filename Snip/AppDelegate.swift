@@ -5,8 +5,10 @@ import AppKit
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private let permissions = PermissionsCoordinator()
+    let model = AppModel()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        seedSampleSnippetsIfEmpty()
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         // "Snip" is short for Snippets: the app inserts text, it never cuts. Hence text.insert.
         // A misspelled symbol name yields nil, which would leave an invisible status item.
@@ -22,6 +24,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit Snip", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         statusItem.menu = menu
+    }
+
+    /// Gives a fresh install something on the ring so the radial is testable immediately.
+    private func seedSampleSnippetsIfEmpty() {
+        guard model.library.snippets.isEmpty else { return }
+        model.library.snippets = [
+            .init(label: "SIG", body: "Best,\nAlex", slot: 0),
+            .init(label: "DATE", body: "{date}", slot: 1),
+            .init(label: "HI", body: "Hi $|,\n\nThanks,\nAlex", slot: 5),
+        ]
+        model.save()
     }
 
     @objc private func grantAccessibility() {
