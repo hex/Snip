@@ -150,19 +150,20 @@ struct RadialMenuView: View {
 
     // MARK: - Lens
 
-    /// A hole through the glass, dressed with the two opposed cues that read as glass: a shadow on
-    /// the near (top) inside edge, and a specular on the far (bottom) one where light exits.
+    /// A magnifying loupe onto the apps behind the window, dressed with the two opposed cues that
+    /// read as glass: a shadow on the near (top) inside edge, a specular on the far (bottom) one.
     ///
-    /// The pixels are not really refracted. The WindowServer does not feed its backdrop copy to a
-    /// layer in a borderless, non-activating panel, so CABackdropLayer renders nothing here: a
-    /// CIColorInvert diagnostic did not even change colour. Only NSVisualEffectView receives the
-    /// backdrop, through a private host relationship we cannot reproduce. Real refraction would
-    /// need a Screen Recording permission, which a snippet app has no business asking for.
-    ///
-    /// Kept deliberately restrained so the document stays readable through the hole.
+    /// The loupe is a real, live, WindowServer-rendered magnification (CAPortalLayer mirroring an
+    /// NSVisualEffectView backdrop, no Screen Recording permission). Where the private API is
+    /// unavailable, it falls back to a plain see-through hole and the painted cues still read.
     private var hubGroup: some View {
         ZStack {
-            Circle().fill(.white.opacity(0.03))
+            if BackdropLoupeView.isSupported {
+                BackdropLoupe(magnification: 1.5)
+                    .clipShape(Circle())
+            } else {
+                Circle().fill(.white.opacity(0.03))
+            }
 
             Circle()
                 .stroke(.black.opacity(0.32), lineWidth: 6)

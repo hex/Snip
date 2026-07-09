@@ -474,3 +474,40 @@ for a decorative effect.
 **v1 is complete: all 14 plan tasks done and exercised, 25 tests green.** The diagnostic cost one
 build and settled what three rounds of number-tuning could not. When a question is empirical,
 build the experiment that discriminates between hypotheses instead of nudging a constant.
+
+
+## 2026-07-09 (cont.): refraction SOLVED by Fable (CAPortalLayer). In-app pending Alex
+
+Alex rejected stopping, said "use fable and find a solution." Dispatched Fable (agentId
+a171a6479c5f92621). Fable did not just reason: it built an Obj-C probe reproducing our exact panel
+on THIS Mac, drove it live, and screenshot-verified a working magnified loupe at 1.5x and 2.5x.
+
+Key correction to my earlier reasoning: our whole window is rendered SERVER-SIDE
+(`groupNamespace = hostingNamespacedContext`), so Core Image filters NEVER run on the backdrop.
+My `CIColorInvert` diagnostic was therefore INVALID, it could not have shown anything, so
+"outcome 4" did not actually prove the backdrop was absent. What is true: a hand-rolled
+CABackdropLayer is never wired by the WindowServer, and `CABackdropLayer.zoom` only zooms OUT.
+
+The working recipe (all private API, NO Screen Recording permission):
+- Put a small hidden `NSVisualEffectView` (.hudWindow, .behindWindow) at the hub. AppKit registers
+  it (`_registerBackdropView:`) and the WindowServer wires its consumer `CABackdropLayer` into the
+  window's captured-backdrop group. This is the step I could never do by hand.
+- Recurse the effect view's layer tree to find that `CABackdropLayer` (class name match).
+- Strip its `filters` (sharp live feed) and hide fill/tone/tint siblings.
+- Add a private `CAPortalLayer` with `sourceLayer` = that backdrop, `hidesSourceLayer = true`,
+  `allowsBackdropGroups = true`, and `transform = scale(mag)`. A portal MIRRORS another layer's
+  content through its OWN transform, so scale magnifies. The backdrop itself ignores transforms.
+- Raise the window-root capture provider `scale` from 0.125 to backingScaleFactor for sharpness,
+  and multiply each consumer's `gaussianBlur.inputRadius` by the same ratio so the ring frost is
+  unchanged.
+Native `CAFilter` types DO run server-side (gaussianBlur, colorInvert, displacementMap,
+glassBackground/Foreground, etc.); CIFilters do not. So distortion must come from CAFilter or the
+portal transform, never a CIFilter.
+
+Implemented as `Snip/Overlay/BackdropLoupeView.swift` (+ `BackdropLoupe` NSViewRepresentable),
+gated on `isSupported` (CAPortalLayer + CABackdropLayer present), painted lens as fallback. Wired
+into the hub at magnification 1.5. Builds, runs, no crash.
+
+BLOCKED on Alex: does the hub now visibly MAGNIFY the text behind it, and does the ring frost still
+look right after the capture-resolution bump. If yes, commit and the lens is finally done. If the
+loupe is offset or too strong/weak, one-number fixes.
