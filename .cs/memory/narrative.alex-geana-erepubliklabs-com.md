@@ -224,8 +224,34 @@ Two ordering bugs found and fixed in `OverlayPanelController` while doing this:
 2. `invalidateShadow()` ran while the ring was still at 72 percent scale, snapshotting a shadow
    for the small circle. Now called again 0.42s later, once the spring settles.
 
-BLOCKED (visual judgment, Alex must do): is the translucency now too weak over busy content
-(if so raise the scrim), and does the 6 degree rotation read as delightful or gimmicky (one line
-to remove). Then commit, and continue with plan Tasks 12 to 14: library window (so Alex can
-create/edit/pin his own snippets instead of the SIG/DATE/HI seeds), settings, onboarding.
+## 2026-07-09 (cont.): Task 12 committed; glass annulus + larger canvas
+
+Alex: "translucency is ok" (scrim 0.16 stays). Task 12 committed (`396922a`): library window.
+Found and closed a real correctness gap while building it: nothing stopped two snippets claiming
+the same slot, and `snippet(inSlot:)` returns `.first`, so the second would be permanently
+un-fireable and look like an event-tap bug. Moved slot assignment into SnipKit as
+`SnippetLibrary.assign(slot:to:)` with 4 unit tests (suite now 25 green) and made AppModel
+delegate to it. Pure logic belongs in the testable layer.
+
+**Alex: "enlarge the canvas, the animation gets cropped" and "the middle should be real glass,
+see through."** Both done (built, running, NOT committed):
+- Crop cause: `dampingFraction 0.62` overshoots scale to about 1.06, but the panel was exactly
+  ringSize (236), so window bounds guillotined the bounce, the unwinding rotation, and the label
+  shadows. Panel is now a 320pt canvas with the 236pt ring centered (42pt headroom). Screen-edge
+  clamping uses canvasSize too.
+- Hub is now a real hole. `NSVisualEffectView.maskImage` went from a circle to an **annulus**
+  (fill the outer oval, then punch the inner oval with `compositingOperation = .clear`). Scrim and
+  specular sheen became `RingShape` donuts filled with `FillStyle(eoFill: true)` so tint does not
+  leak into the hole. Hub is a rim stroke, not a disc.
+- **Latent bug fixed by that change:** the drawn hub radius is 35pt but `RadialSession`'s dead zone
+  was 24pt, leaving an 11pt ring of lies where releasing inside the visible "cancel" circle still
+  fired a wedge. Dead zone raised to 35 so the see-through hole IS exactly the cancel target.
+  Affordance and behavior are now the same shape.
+
+BLOCKED (visual judgment, Alex must do): does the overshoot now complete without clipping, is the
+document visible through the hub, and does center-release feel like an obvious abort. Also still
+open: is the 6 degree counter-rotation delightful or gimmicky (one line to remove). Then commit,
+and finish plan Tasks 13 (settings) and 14 (onboarding + remove debug menu items). Note: testing
+onboarding needs `tccutil reset Accessibility ai.symbiotica.Snip`, which revokes Alex's current
+grant, so ask before running it.
 
