@@ -7,11 +7,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private let permissions = PermissionsCoordinator()
     private var overlay: OverlayPanelController!
+    private var engine: EventTapEngine!
     let model = AppModel()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         seedSampleSnippetsIfEmpty()
         overlay = OverlayPanelController(model: model)   // prewarms the panel + SwiftUI graph
+        startEventTap()
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         // "Snip" is short for Snippets: the app inserts text, it never cuts. Hence text.insert.
         // A misspelled symbol name yields nil, which would leave an invisible status item.
@@ -41,8 +43,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.save()
     }
 
+    private func startEventTap() {
+        engine = EventTapEngine(
+            config: TriggerConfig(),
+            permissions: permissions,
+            onBloom: { [weak self] anchor in self?.overlay.show(atQuartz: anchor) },
+            onPointer: { [weak self] selection in self?.overlay.update(selection: selection) },
+            onCommit: { [weak self] selection in
+                self?.overlay.hide()
+                self?.fire(selection)
+            },
+            onCancel: { [weak self] in self?.overlay.hide() })
+
+        if !engine.start() { permissions.requestTrust() }
+    }
+
+    /// Real insertion arrives with PasteEngine; for now prove the gesture resolves to a snippet.
+    private func fire(_ selection: RadialSelection) {
+        guard case let .wedge(index) = selection, let snippet = model.snippet(inSlot: index) else {
+            NSLog("[Snip] cancelled")
+            return
+        }
+        NSLog("[Snip] FIRE slot %d: %@", index, snippet.label)
+    }
+
     @objc private func grantAccessibility() {
         permissions.requestTrust()
+        engine?.stop()
+        startEventTap()
     }
 
     /// Blooms after a delay so the tester can hand focus to another app first —

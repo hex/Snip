@@ -1,0 +1,145 @@
+// ABOUTME: Owns the global CGEventTap that detects the middle-mouse hold and streams the drag.
+// ABOUTME: Consumes middle-button events so the app underneath never sees them; runs off-main.
+import AppKit
+import SnipKit
+
+final class EventTapEngine {
+    /// Stamped onto events we synthesize (paste, arrows) so our own tap passes them through.
+    static let magicUserData: Int64 = 0x534E4950   // "SNIP"
+
+    private let config: TriggerConfig
+    private let permissions: PermissionsCoordinator
+    private let onBloom: (CGPoint) -> Void
+    private let onPointer: (RadialSelection) -> Void
+    private let onCommit: (RadialSelection) -> Void
+    private let onCancel: () -> Void
+
+    private var tap: CFMachPort?
+    private var runLoopSource: CFRunLoopSource?
+    private var tapRunLoop: CFRunLoop?
+
+    private let session = RadialSession(wedgeCount: 8, deadZoneRadius: 24, hysteresisDegrees: 6)
+    private var isOpen = false
+    private var anchor = CGPoint.zero
+    private var selection: RadialSelection = .none
+
+    init(config: TriggerConfig,
+         permissions: PermissionsCoordinator,
+         onBloom: @escaping (CGPoint) -> Void,
+         onPointer: @escaping (RadialSelection) -> Void,
+         onCommit: @escaping (RadialSelection) -> Void,
+         onCancel: @escaping () -> Void) {
+        self.config = config
+        self.permissions = permissions
+        self.onBloom = onBloom
+        self.onPointer = onPointer
+        self.onCommit = onCommit
+        self.onCancel = onCancel
+    }
+
+    /// Returns false when Accessibility trust is missing: tapCreate is the reliable signal,
+    /// because CGEvent.post silently no-ops instead of failing.
+    @discardableResult
+    func start() -> Bool {
+        guard permissions.isTrusted else { return false }
+
+        let mask: CGEventMask =
+            (1 << CGEventType.otherMouseDown.rawValue) |
+            (1 << CGEventType.otherMouseUp.rawValue) |
+            (1 << CGEventType.otherMouseDragged.rawValue)
+
+        let callback: CGEventTapCallBack = { _, type, event, refcon in
+            guard let refcon else { return Unmanaged.passUnretained(event) }
+            let engine = Unmanaged<EventTapEngine>.fromOpaque(refcon).takeUnretainedValue()
+            return engine.handle(type: type, event: event)
+        }
+
+        guard let tap = CGEvent.tapCreate(tap: .cgSessionEventTap,
+                                          place: .headInsertEventTap,
+                                          options: .defaultTap,
+                                          eventsOfInterest: mask,
+                                          callback: callback,
+                                          userInfo: Unmanaged.passUnretained(self).toOpaque())
+        else { return false }
+
+        self.tap = tap
+        let source = CFMachPortCreateRunLoopSource(nil, tap, 0)
+        runLoopSource = source
+
+        // A tap on the main run loop dies of kCGEventTapDisabledByTimeout the first time the
+        // main thread hitches, and we animate on main. Give it a thread of its own.
+        let thread = Thread { [weak self] in
+            guard let self, let source = self.runLoopSource, let tap = self.tap else { return }
+            self.tapRunLoop = CFRunLoopGetCurrent()
+            CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
+            CGEvent.tapEnable(tap: tap, enable: true)
+            CFRunLoopRun()
+        }
+        thread.name = "ai.symbiotica.Snip.eventtap"
+        thread.start()
+        return true
+    }
+
+    func stop() {
+        if let tap { CGEvent.tapEnable(tap: tap, enable: false) }
+        if let tapRunLoop { CFRunLoopStop(tapRunLoop) }
+        tap = nil
+        runLoopSource = nil
+        tapRunLoop = nil
+    }
+
+    private func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
+        // The system hands these back as event types; re-enable and resync rather than die.
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
+            if isOpen { closeAndCancel() }
+            return Unmanaged.passUnretained(event)
+        }
+
+        // Never react to events we posted ourselves, or we build a feedback loop.
+        if event.getIntegerValueField(.eventSourceUserData) == Self.magicUserData {
+            return Unmanaged.passUnretained(event)
+        }
+
+        guard config.middleMouseEnabled else { return Unmanaged.passUnretained(event) }
+
+        // "otherMouse" covers buttons 2...31; thumb buttons are 3/4 and must pass through.
+        let isMiddleButton = event.getIntegerValueField(.mouseEventButtonNumber) == 2
+
+        switch type {
+        case .otherMouseDown where isMiddleButton:
+            anchor = event.location
+            selection = .none
+            isOpen = true
+            DispatchQueue.main.async { self.onBloom(self.anchor) }
+            return nil   // consume: the app underneath never sees the middle click
+
+        case .otherMouseDragged where isOpen && isMiddleButton:
+            updateSelection(at: event.location)
+            return nil
+
+        case .otherMouseUp where isOpen && isMiddleButton:
+            let committed = selection
+            isOpen = false
+            DispatchQueue.main.async { self.onCommit(committed) }
+            return nil
+
+        default:
+            return Unmanaged.passUnretained(event)
+        }
+    }
+
+    private func updateSelection(at point: CGPoint) {
+        let dx = Double(point.x - anchor.x)
+        let dy = Double(point.y - anchor.y)   // Quartz: downward is positive
+        let next = session.selection(dx: dx, dy: dy, previous: selection)
+        guard next != selection else { return }
+        selection = next
+        DispatchQueue.main.async { self.onPointer(next) }
+    }
+
+    private func closeAndCancel() {
+        isOpen = false
+        DispatchQueue.main.async { self.onCancel() }
+    }
+}
