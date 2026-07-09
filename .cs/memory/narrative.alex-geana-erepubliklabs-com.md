@@ -9,7 +9,7 @@ metadata:
 
 # Session narrative (alex-geana-erepubliklabs-com)
 
-## 2026-07-09 — Brainstorming "Snip": macOS radial snippet inserter
+## 2026-07-09: Brainstorming "Snip": macOS radial snippet inserter
 
 **Product:** macOS app. Store text snippets; hold middle-mouse (or a hotkey) → a
 radial pie menu blooms under the cursor → drag toward a wedge → release inserts the
@@ -24,18 +24,18 @@ snippet's text at the cursor of whatever app is frontmost. Aesthetic north star:
 - **Trigger:** hold middle-mouse = hero interaction, PLUS a configurable keyboard
   hotkey fallback (trackpads have no middle button → don't cap the market). Both
   converge on one selection path: drag + release to fire; release at center = cancel.
-- **Core UX direction — "The Eight + escape hatch" (Strategy C):** resolves the
+- **Core UX direction, "The Eight + escape hatch" (Strategy C):** resolves the
   central tension (muscle memory needs FIXED positions vs. capacity needs many).
   Ring positions are sacred; the long tail lives behind a deliberate door.
-  - v1: **The Eight** — up to 8 hand-pinned fixed slots; empty slots ghosted (also
+  - v1: **The Eight**, up to 8 hand-pinned fixed slots; empty slots ghosted (also
     covers the 0/1-snippet + onboarding cases). Cheapest credible build.
-  - v1.5: **The Well** — dwell on center → ring exhales into a small frosted search
+  - v1.5: **The Well**, dwell on center → ring exhales into a small frosted search
     palette for the long tail. Same gesture, no second hotkey.
-  - v2: **Chameleon** — "your Eight, per app" (frontmost-app detection ~free; spend
+  - v2: **Chameleon**, "your Eight, per app" (frontmost-app detection ~free; spend
     is onboarding). The paid-tier differentiator. Deterministic, not re-ranked.
-- **Rejected:** re-ranking rings (Orbit frecency / Sixth Sense prediction) — they
+- **Rejected:** re-ranking rings (Orbit frecency / Sixth Sense prediction), they
   sabotage the muscle memory that justifies a radial over a searchable list.
-  Wildcard parked: **Inkstroke** (blind marking-menu compound strokes) — future
+  Wildcard parked: **Inkstroke** (blind marking-menu compound strokes), future
   throwaway prototype, unmatched demo if the recognizer can be trusted.
 
 **Process notes:**
@@ -54,12 +54,12 @@ SwiftUI overlay (Option B, Fable-reviewed); persistence = Codable JSON.
 - Spec: `docs/superpowers/specs/2026-07-09-snip-design.md`
 - Plan: `docs/superpowers/plans/2026-07-09-snip-v1.md` (14 TDD tasks; SnipKit package + app target)
 
-## 2026-07-09 (cont.) — Executing plan: SnipKit slice DONE
+## 2026-07-09 (cont.): Executing plan: SnipKit slice DONE
 
 Chose to build the pure-logic package first (fully autonomous, no Team ID / Accessibility
 needed). Structure: `SnipKit/` SwiftPM package (Foundation-only) tested via `swift test`.
 
-**Done — plan Tasks 1,3–7, strict RED→GREEN, one commit each, 21 tests green:**
+**Done, plan Tasks 1,3–7, strict RED→GREEN, one commit each, 21 tests green:**
 - `Snippet` / `SnippetLibrary` (Codable, schemaVersion)
 - `SnippetStore` (atomic JSON, empty-when-missing, migrate hook)
 - `TokenResolver` (tokens + grapheme-aware `$|`; `{time}` asserted by components to dodge
@@ -69,13 +69,13 @@ needed). Structure: `SnipKit/` SwiftPM package (Foundation-only) tested via `swi
 - Toolchain: Swift 6.3.2 / macOS 26.5.1; `Package.swift` pinned to tools-version 5.9 (avoid
   strict-concurrency noise on injected closures). Run tests: `swift test --package-path SnipKit`.
 
-**Remaining — plan Tasks 2, 8–14 (app target).** BLOCKED ON ALEX'S MACHINE:
+**Remaining, plan Tasks 2, 8–14 (app target).** BLOCKED ON ALEX'S MACHINE:
 needs `DEVELOPMENT_TEAM` id in project.yml, `brew install xcodegen`, granting Accessibility,
 and manual end-to-end verification (watch snippets paste into TextEdit/Mail/VS Code). Not
 autonomously completable. Order: XcodeGen project + menu-bar agent → AX smoke test →
 overlay panel → EventTapEngine → PasteEngine → library/settings/onboarding.
 
-## 2026-07-09 (cont.) — App layer started, blocked on manual verify
+## 2026-07-09 (cont.): App layer started, blocked on manual verify
 
 Alex chose "guide me through the app layer interactively." Prereqs confirmed on his Mac:
 XcodeGen 2.45.3, Xcode 26.5, valid signing identities. **Signing team = 7G4UQW35EL**
@@ -85,8 +85,8 @@ Wrote plan Task 1+2 (folded into one buildable increment):
 `project.yml` (XcodeGen), `Snip/main.swift` (explicit NSApplication accessory boot, not
 @main), `Snip/AppDelegate.swift` (NSStatusItem + Grant-Accessibility + smoke-paste actions),
 `Snip/Permissions/PermissionsCoordinator.swift`. XcodeGen generates Info.plist + entitlements
-from project.yml (gitignored — project.yml is source of truth). **Compiles clean unsigned**
-(`xcodebuild ... CODE_SIGNING_ALLOWED=NO` → BUILD SUCCEEDED). NOT yet committed — waiting to
+from project.yml (gitignored, project.yml is source of truth). **Compiles clean unsigned**
+(`xcodebuild ... CODE_SIGNING_ALLOWED=NO` → BUILD SUCCEEDED). NOT yet committed, waiting to
 verify end-to-end first.
 
 Signed build + launch DONE by me (superseding "blocked on signed run"):
@@ -95,9 +95,38 @@ to cert "Apple Development: Alex Geana (77PGN87CWD)" under TeamIdentifier 7G4UQW
 confirms Identifier=ai.symbiotica.Snip. App launches and stays resident (menu-bar agent).
 Run it: `open ./DerivedData/Build/Products/Debug/Snip.app`.
 
-STILL BLOCKED (GUI-only, Alex must do): click ✂ → "Grant Accessibility…", toggle Snip ON in
-System Settings ▸ Privacy & Security ▸ Accessibility, then verify `Smoke: paste "hello"` inserts
-into TextEdit. Diagnostics agreed: beep = AXIsProcessTrusted() false; silence = CGEvent.post
-silent no-op (same root cause). Once confirmed → commit Task 1+2, then Task 9 (overlay panel).
-Next files to write: `Snip/Overlay/{OverlayPanel,OverlayPanelController,RadialViewModel,RadialMenuView,VisualEffectView}.swift`.
+## 2026-07-09 (cont.): Smoke test PASSED; Tasks 1,2,8 committed
+
+Alex granted Accessibility and confirmed `Smoke: paste "hello"` inserts into TextEdit. This
+validates the whole risky spine at once: AX trust obtainable, `CGEvent` creation works, and a
+foreign app honors our synthetic ⌘V. (Supersedes the "STILL BLOCKED on smoke test" note above.)
+
+**Naming correction from Alex:** "Snip" comes from **Snippets**, not scissors. The app inserts
+text and never cuts. Menu-bar icon changed `scissors` → `text.insert`, with a nil-guard fallback
+to a text title (a bad SF Symbol name returns nil and leaves an invisible status item). Saved as
+durable memory `snip-name-means-snippets.md`. No cut/clip/trim/scissors vocabulary anywhere.
+
+**Committed:** Task 1+2 (`b4cd4ae`), Task 8 AppModel (`84f58bc`). snippets.json verified on disk
+with schemaVersion 1 + SIG/DATE/HI seeds in slots 0/1/5.
+
+**XcodeGen gotcha (will recur):** XcodeGen snapshots the source-file list at `generate` time, so
+any NEW .swift file needs `xcodegen generate` BEFORE `xcodebuild`, else "cannot find X in scope"
+despite the file existing. Bit me on AppModel.swift. Build loop:
+`xcodegen generate && xcodebuild -project Snip.xcodeproj -scheme Snip -configuration Debug -derivedDataPath ./DerivedData build`
+then `pkill -x Snip; open ./DerivedData/Build/Products/Debug/Snip.app`.
+
+**Also note:** SourceKit/LSP reports bogus "No such module 'SnipKit'" / "cannot find X in scope"
+for app-target files. Ignore it; `xcodebuild` is the source of truth and builds clean.
+
+**Task 9 (overlay) written and building, NOT yet committed.** Files:
+`Snip/Overlay/{VisualEffectView,RadialViewModel,RadialMenuView,OverlayPanel,OverlayPanelController}.swift`.
+Design notes: WedgeShape/SpokesShape draw the annular sectors and hairlines; wedge 0 points up,
+indices clockwise. Prewarming the NSHostingView defeats `onAppear`, so the bloom spring is driven
+by `RadialViewModel.isVisible`, flipped on the NEXT runloop tick after `orderFrontRegardless()`
+(setting it synchronously would skip the animation). Debug menu item blooms after a 3s delay so
+the tester can hand focus to TextEdit first, making it a genuine non-activating test.
+
+BLOCKED (GUI-only, Alex must do): confirm the ring renders (frosted, 8 wedges, SIG top / DATE
+upper-right / HI lower-left highlighted coral, ghosted `+` on empties) AND that TextEdit keeps
+focus while the ring is up. Then commit Task 9 → Task 10 (EventTapEngine).
 
