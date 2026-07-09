@@ -456,6 +456,21 @@ composites on the GPU with fixed geometry. `CIBumpDistortion` WARPS COORDINATES,
 drops it: no error, no warning, no nil. If so, `CIColorInvert` (a pure per-pixel colour map) will
 invert while the bump never ran, and `zoom` was the right tool from the start.
 
-BLOCKED: Alex reads the diagnostic hub and reports which of the four outcomes he sees. Then either
-ship a real lens or revert to the painted one and delete `LensDiagnostics`. Note the lens is pure
-polish sitting on a finished, verified v1.
+**RESULT: outcome 4. Nothing.** No inversion, no zoom. `CIColorInvert` is the simplest per-pixel
+filter Core Image has and Core Animation supports it, so the failure is upstream of both
+hypotheses: there is NO backdrop content to filter or zoom. The WindowServer does not feed its
+backdrop copy to a layer in a borderless, non-activating, transparent, `.screenSaver`-level,
+`ignoresMouseEvents` panel. Only NSVisualEffectView receives it, via a private host relationship we
+cannot reproduce by instantiating the class.
+
+Reverted. `LensDistortionView.swift` DELETED (dead code, not left behind a disabled flag). The hub
+keeps the painted lens, softened so the document stays readable: inner shadow 0.32, specular 0.28.
+Saved durable memory `no-real-refraction-in-overlay-panel.md` so nobody walks back into this.
+
+The only remaining route is ScreenCaptureKit plus a Screen Recording permission, rejected: a
+snippet app that already asks for Accessibility has no business also asking to record the screen,
+for a decorative effect.
+
+**v1 is complete: all 14 plan tasks done and exercised, 25 tests green.** The diagnostic cost one
+build and settled what three rounds of number-tuning could not. When a question is empirical,
+build the experiment that discriminates between hypotheses instead of nudging a constant.

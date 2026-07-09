@@ -150,31 +150,35 @@ struct RadialMenuView: View {
 
     // MARK: - Lens
 
-    /// A hole through the glass, magnifying the real pixels behind the window, dressed with the
-    /// two opposed cues that read as glass: a shadow on the near inside edge, a specular on the far.
+    /// A hole through the glass, dressed with the two opposed cues that read as glass: a shadow on
+    /// the near (top) inside edge, and a specular on the far (bottom) one where light exits.
+    ///
+    /// The pixels are not really refracted. The WindowServer does not feed its backdrop copy to a
+    /// layer in a borderless, non-activating panel, so CABackdropLayer renders nothing here: a
+    /// CIColorInvert diagnostic did not even change colour. Only NSVisualEffectView receives the
+    /// backdrop, through a private host relationship we cannot reproduce. Real refraction would
+    /// need a Screen Recording permission, which a snippet app has no business asking for.
+    ///
+    /// Kept deliberately restrained so the document stays readable through the hole.
     private var hubGroup: some View {
         ZStack {
-            // Past ~0.5 the centre magnifies so hard it samples almost nothing, and a page of
-            // text becomes a white bulge. Legibility is the point of a magnifier.
-            LensDistortionView(diameter: hubSize, magnification: 0.45)
-
-            Circle().fill(.white.opacity(0.04))
+            Circle().fill(.white.opacity(0.03))
 
             Circle()
-                .stroke(.black.opacity(0.40), lineWidth: 7)
+                .stroke(.black.opacity(0.32), lineWidth: 6)
                 .blur(radius: 4)
                 .offset(y: -4)
                 .mask(Circle())
 
             Circle()
-                .stroke(.white.opacity(0.45), lineWidth: 4)
-                .blur(radius: 2.5)
+                .stroke(.white.opacity(0.28), lineWidth: 3)
+                .blur(radius: 3)
                 .offset(y: 4)
                 .mask(Circle())
 
-            Circle().strokeBorder(.black.opacity(0.24), lineWidth: 1)
+            Circle().strokeBorder(.black.opacity(0.22), lineWidth: 1)
             Circle().strokeBorder(
-                LinearGradient(colors: [.white.opacity(0.50), .white.opacity(0.04)],
+                LinearGradient(colors: [.white.opacity(0.45), .white.opacity(0.04)],
                                startPoint: .topLeading, endPoint: .bottomTrailing),
                 lineWidth: 1)
         }

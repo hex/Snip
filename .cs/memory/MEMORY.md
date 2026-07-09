@@ -1,2 +1,3 @@
 - [Session narrative — alex-geana-erepubliklabs-com (lab notebook)](narrative.alex-geana-erepubliklabs-com.md): looser-bar work-in-progress; read all narrative.*.md on resume
 - ["Snip" comes from Snippets](snip-name-means-snippets.md): no scissors/cutting metaphors — the app inserts text, never cuts
+- [No real refraction in the overlay panel](no-real-refraction-in-overlay-panel.md): CABackdropLayer renders nothing in a borderless non-activating NSPanel; the hub lens is painted
