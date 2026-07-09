@@ -1,14 +1,17 @@
 // ABOUTME: App lifecycle owner: creates the menu-bar status item and (for now) smoke-test actions.
 // ABOUTME: Later wires the event tap, overlay, paste engine, and windows.
 import AppKit
+import SnipKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private let permissions = PermissionsCoordinator()
+    private var overlay: OverlayPanelController!
     let model = AppModel()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         seedSampleSnippetsIfEmpty()
+        overlay = OverlayPanelController(model: model)   // prewarms the panel + SwiftUI graph
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         // "Snip" is short for Snippets: the app inserts text, it never cuts. Hence text.insert.
         // A misspelled symbol name yields nil, which would leave an invisible status item.
@@ -21,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         menu.addItem(withTitle: "Grant Accessibility…", action: #selector(grantAccessibility), keyEquivalent: "")
         menu.addItem(withTitle: "Smoke: paste \"hello\"", action: #selector(smokePaste), keyEquivalent: "")
+        menu.addItem(withTitle: "Debug: bloom ring in 3s", action: #selector(debugBloom), keyEquivalent: "")
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit Snip", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         statusItem.menu = menu
@@ -39,6 +43,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func grantAccessibility() {
         permissions.requestTrust()
+    }
+
+    /// Blooms after a delay so the tester can hand focus to another app first —
+    /// proving the panel appears without activating Snip.
+    @objc private func debugBloom() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            let mouse = NSEvent.mouseLocation
+            let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
+            self.overlay.show(atQuartz: CGPoint(x: mouse.x, y: primaryHeight - mouse.y))
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                self.overlay.update(selection: .wedge(5))   // "HI" slot
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
+                self.overlay.hide()
+            }
+        }
     }
 
     @objc private func smokePaste() {
