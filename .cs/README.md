@@ -11,11 +11,20 @@ aliases: ["Snip"]
 
 ## Objective
 
-[Describe what you're trying to accomplish in this session]
+Design and build **Snip** — a menu-bar macOS app that stores text snippets and inserts a
+chosen snippet at the cursor of the frontmost app via a **radial (pie) menu** triggered by
+holding the middle mouse button (or a keyboard hotkey): press → ring blooms under the cursor
+→ drag to a wedge → release to insert. Aesthetic north star: CleanShot X. Intended as a real,
+eventually-paid product (distributed outside the Mac App Store).
+
+Current phase: **brainstorming/design complete** — see
+`docs/superpowers/specs/2026-07-09-snip-design.md` for the approved spec. Next: implementation plan.
 
 ## Environment
 
-[Describe the system, server, or context you're working in]
+macOS 14+ native app. Swift, AppKit shell (`LSUIElement` menu-bar agent + `CGEventTap` +
+borderless `NSPanel` overlay) hosting SwiftUI content; `Codable` JSON persistence. Requires the
+Accessibility permission. Greenfield repo — no app code yet at design time.
 
 ## Outcome
 
