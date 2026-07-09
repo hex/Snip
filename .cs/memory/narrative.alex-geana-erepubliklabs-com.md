@@ -243,6 +243,7 @@ see through."** Both done (built, running, NOT committed):
   ringSize (236), so window bounds guillotined the bounce, the unwinding rotation, and the label
   shadows. Panel is now a 320pt canvas with the 236pt ring centered (42pt headroom). Screen-edge
   clamping uses canvasSize too.
+  **SUPERSEDED: all clamping removed, it broke the interaction. See the cursor-centering entry below.**
 - Hub is now a real hole. `NSVisualEffectView.maskImage` went from a circle to an **annulus**
   (fill the outer oval, then punch the inner oval with `compositingOperation = .clear`). Scrim and
   specular sheen became `RingShape` donuts filled with `FillStyle(eoFill: true)` so tint does not
@@ -271,6 +272,10 @@ Fix, which solved the magnifier request at the same time:
 - That donut's inner edge bleeds softly into the hub, producing the lens bevel. One shape gives
   both the drop shadow and the magnifier edge. Hub also gained a `white.opacity(0.03)` fill and a
   rim lit from topLeading, staying genuinely see-through.
+  **WRONG, SUPERSEDED: the donut sits BEHIND the vibrancy and the hub is a HOLE, so almost none of
+  it lands in the hole. No bevel rendered. Alex reported "I don't see any effect inside the
+  magnifier." I asserted a mechanism I had reasoned about but never observed. See the lens entry
+  below for what actually works.**
 
 **Disappear animation:** the real flaw was that a single `isVisible` bool gives "hidden" exactly
 one definition, so the exit was forced to be the entrance reversed (un-rotating, labels retracting
@@ -278,11 +283,38 @@ to the hub). Added `RadialViewModel.isDismissing` to get two distinct hidden sta
 enter-from (scale 0.72, rotation -6, labels at 55 percent radius) and exit-to (scale 0.94,
 rotation 0, labels in place, just fading) over 0.14s easeOut.
 
-BLOCKED (visual judgment, Alex must do): is the dark rim gone at the start of the bloom, does the
-hub bevel read as a lens rather than dirt, does the exit feel like leaving rather than rewinding.
-If the shadow's inner bleed is too heavy in the hole, lower `blur(13)` or shrink the donut's inner
-edge. Still open: is the 6 degree counter-rotation delightful or gimmicky (one line to remove).
-Then commit, and finish plan Tasks 13 (settings) and 14 (onboarding + remove debug menu items).
-Note: testing onboarding needs `tccutil reset Accessibility ai.symbiotica.Snip`, which revokes
-Alex's current grant, so ask before running it.
+## 2026-07-09 (cont.): cursor-centering bug fixed; real lens hub
+
+Alex screenshot near the top of the screen: the ring was shoved DOWN, away from the cursor.
+
+**This was a correctness bug, not cosmetics.** `RadialSession` picks the wedge from the press
+ANCHOR (the real cursor position), not from where the ring is drawn. Clamping the canvas into
+`visibleFrame` made the drawing and the geometry disagree near screen edges: drag toward the wedge
+you can see, a different one highlights. Position-dependent silent misfires.
+
+Fix: the ring is ALWAYS centered on the anchor, never clamped.
+- `ScreenGeometry.clampedOrigin` deleted and replaced by `centeredOrigin(forSize:center:)`. Its two
+  clamping tests were removed too: they encoded behavior now known to be wrong. Replaced with a
+  centering test and, importantly, a regression test asserting the origin goes NEGATIVE near an
+  edge rather than being clamped. Suite still 25 green.
+- `OverlayPanel.constrainFrameRect(_:to:)` overridden to return `frameRect` unchanged. AppKit
+  otherwise drags off-screen windows back into view, which was also happening.
+- Consequence: near the top the ring overlaps the menu bar. Correct, our level is `.screenSaver`.
+
+**Real lens hub.** The previous "bevel from the donut's inner bleed" never rendered (see the
+struck entry above). Glass reads as glass from two OPPOSED cues, both drawn inside the hole and
+masked to it: an inner shadow on the near (top) inside edge, and a specular on the far (bottom)
+inside edge where light exits. Plus a crisp `black.opacity(0.24)` hairline so the lens has an edge
+against light content, and a topLeading-lit rim over that.
+
+Lesson recorded: I described the donut-bleed mechanism confidently without ever observing it.
+A mechanism reasoned about but not observed is a hypothesis, not a fact. Do not narrate it as one.
+
+BLOCKED (visual judgment, Alex must do): hold near the top of the screen (ring should stay on the
+cursor and overlap the menu bar), and check whether the hub now reads as ground glass or too heavy
+(`black.opacity(0.40)` inner shadow / `white.opacity(0.45)` specular are easy to dial back). Still
+open: is the 6 degree counter-rotation delightful or gimmicky (one line to remove). Then commit,
+and finish plan Tasks 13 (settings) and 14 (onboarding + remove debug menu items). Note: testing
+onboarding needs `tccutil reset Accessibility ai.symbiotica.Snip`, which revokes Alex's current
+grant, so ask before running it.
 
