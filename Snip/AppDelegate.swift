@@ -1,6 +1,7 @@
 // ABOUTME: App lifecycle owner: creates the menu-bar status item and (for now) smoke-test actions.
 // ABOUTME: Later wires the event tap, overlay, paste engine, and windows.
 import AppKit
+import SwiftUI
 import SnipKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -9,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var overlay: OverlayPanelController!
     private var engine: EventTapEngine!
     private let paster = PasteEngine()
+    private var libraryWindow: NSWindow?
     let model = AppModel()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -25,6 +27,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let menu = NSMenu()
+        menu.addItem(withTitle: "Snippets…", action: #selector(openLibrary), keyEquivalent: "")
+        menu.addItem(NSMenuItem.separator())
         menu.addItem(withTitle: "Grant Accessibility…", action: #selector(grantAccessibility), keyEquivalent: "")
         menu.addItem(withTitle: "Smoke: paste \"hello\"", action: #selector(smokePaste), keyEquivalent: "")
         menu.addItem(withTitle: "Debug: bloom ring in 3s", action: #selector(debugBloom), keyEquivalent: "")
@@ -42,6 +46,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .init(label: "HI", body: "Hi $|,\n\nThanks,\nAlex", slot: 5),
         ]
         model.save()
+    }
+
+    @objc private func openLibrary() {
+        if libraryWindow == nil {
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 720, height: 480),
+                                  styleMask: [.titled, .closable, .miniaturizable, .resizable],
+                                  backing: .buffered, defer: false)
+            window.title = "Snip Snippets"
+            window.contentView = NSHostingView(rootView: LibraryView(model: model))
+            window.isReleasedWhenClosed = false
+            window.center()
+            libraryWindow = window
+        }
+        // Unlike the overlay, this window is meant to take focus.
+        NSApp.activate(ignoringOtherApps: true)
+        libraryWindow?.makeKeyAndOrderFront(nil)
     }
 
     private func startEventTap() {

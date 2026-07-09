@@ -29,4 +29,16 @@ public struct SnippetLibrary: Codable, Equatable {
         self.schemaVersion = schemaVersion
         self.snippets = snippets
     }
+
+    /// A ring wedge is a physical position, so a slot holds at most one snippet.
+    /// Pinning to a taken slot evicts its previous occupant rather than shadowing it.
+    public mutating func assign(slot: Int?, to id: Snippet.ID) {
+        guard let target = snippets.firstIndex(where: { $0.id == id }) else { return }
+        if let slot {
+            for index in snippets.indices where index != target && snippets[index].slot == slot {
+                snippets[index].slot = nil
+            }
+        }
+        snippets[target].slot = slot
+    }
 }

@@ -20,6 +20,11 @@ final class AppModel {
         library.snippets.first { $0.slot == slot }
     }
 
+    func setSlot(_ slot: Int?, for id: Snippet.ID) {
+        library.assign(slot: slot, to: id)   // enforces one snippet per slot
+        save()
+    }
+
     func save() {
         try? store.save(library)
     }
