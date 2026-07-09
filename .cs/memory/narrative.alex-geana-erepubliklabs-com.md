@@ -369,12 +369,33 @@ Lesson: the probe changed the design. Confident reasoning about an undocumented 
 shipped two dead writes and missed the one property that does the job. When a question is
 empirical, go measure it.
 
-BLOCKED (visual judgment, Alex must do): hold middle mouse over dense text. Does it magnify about
-18 percent and bow at the rim? Is the hub blurred (would mean the backdrop arrives with vibrancy
-applied)? If still flat, `CABackdropLayer` likely needs a groupName or host relationship we do not
-have, and the recommendation reverts to keeping the painted lens rather than escalating to Screen
-Recording. Still open: is the 6 degree counter-rotation delightful or gimmicky. Then commit, and
-finish plan Tasks 13 (settings) and 14 (onboarding + remove debug menu items). Note: testing
-onboarding needs `tccutil reset Accessibility ai.symbiotica.Snip`, which revokes Alex's current
-grant, so ask before running it.
+## 2026-07-09 (cont.): REAL REFRACTION WORKS. Lens-first choreography
+
+**CABackdropLayer + `zoom` works.** Alex confirmed by asking for a bigger zoom, so the private
+layer really does hand us the WindowServer's copy of the backdrop and `zoom` magnifies it live.
+No Screen Recording prompt, no ScreenCaptureKit. Guarded by `NSClassFromString`, and unknown-key
+writes cannot raise, so a future macOS withdrawing it degrades to the painted lens.
+Also: the 6 degree counter-rotation is approved, it stays.
+
+Raised `zoom` 1.18 to 1.5 (magnification 0.5), eased curvature 0.32 to 0.30 since the stronger zoom
+already bends more at the rim.
+
+**Alex: "the middle part should animate first and then the rings."** Re-choreographed:
+- 0ms: the lens springs up from 32 percent scale, alone.
+- 100ms: the glass ring unfurls around it (scale 0.72, the 6 degree rotation unwinding).
+- 170ms+: labels travel outward, staggered 14ms per wedge.
+- exit: everything fades together in 140ms, no stagger. A staggered exit reads as reluctance;
+  the user has already committed and wants their text.
+
+Structural note worth keeping: `hubGroup` had to become a SIBLING of `ringGroup`, not a child.
+In SwiftUI a parent's `scaleEffect`/`opacity` multiply through to every descendant, so while the
+hub lived inside the ring, delaying the ring held the lens hostage at `opacity(0)`. No per-child
+`.delay()` escapes that. Independent timelines require independent branches. Hub is drawn last so
+its rim caps the spokes where they meet the hole.
+
+BLOCKED (visual judgment, Alex must do): is 1.5x zoom too strong (text may distort past
+legibility), and does the 100ms ring delay read as intentional sequencing or as lag (70ms is the
+likely sweet spot if the latter). Meanwhile continuing with plan Tasks 13 (settings) and 14
+(onboarding + remove debug menu items). Note: testing onboarding needs
+`tccutil reset Accessibility ai.symbiotica.Snip`, which revokes Alex's current grant, so ask first.
 

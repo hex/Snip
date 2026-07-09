@@ -13,6 +13,12 @@ final class OverlayPanel: NSPanel {
     override var canBecomeKey: Bool { keyboardMode }
     override var canBecomeMain: Bool { false }
 
+    /// AppKit nudges windows back on screen by default. The ring must stay centered on the
+    /// cursor even at a screen edge, or the drawn wedges stop matching the drag geometry.
+    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
+        frameRect
+    }
+
     init() {
         super.init(contentRect: .zero,
                    styleMask: [.borderless, .nonactivatingPanel],
@@ -24,9 +30,9 @@ final class OverlayPanel: NSPanel {
         hidesOnDeactivate = false
         isOpaque = false
         backgroundColor = .clear
-        // The content is circular (NSVisualEffectView maskImage), so macOS derives a
-        // circular window shadow from its alpha. A SwiftUI .shadow would come out square.
-        hasShadow = true
+        // The WindowServer snapshots a window shadow from the content's alpha at one instant, so
+        // an animating ring drags a stale dark ring behind it. The view draws its own shadow.
+        hasShadow = false
         ignoresMouseEvents = true
         animationBehavior = .none
         // A floating HUD reads as dark regardless of the user's theme, like CleanShot's overlays.

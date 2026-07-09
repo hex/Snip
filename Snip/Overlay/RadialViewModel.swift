@@ -10,4 +10,6 @@ final class RadialViewModel {
     var selection: RadialSelection = .none
     /// Drives the bloom spring. Flipped after the panel is ordered front.
     var isVisible: Bool = false
+    /// Exits are not entrances played backwards: this picks the hidden state to animate toward.
+    var isDismissing: Bool = false
 }
