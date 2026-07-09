@@ -151,7 +151,32 @@ Three fixes applied (build green, relaunched, awaiting Alex's re-check):
    `panel.hasShadow = true` + `panel.invalidateShadow()` in `show()`, so macOS derives a circular
    shadow from the masked content's alpha.
 
-BLOCKED (GUI-only): Alex re-checks the ring (expect no grey square, dark frosted circle, visible
-white hairlines + hub, circular shadow). Then commit Task 9 and start Task 10 (EventTapEngine),
-so a real middle-mouse hold replaces the debug menu item.
+## 2026-07-09 (cont.): Task 9 COMMITTED; Task 10 (event tap) awaiting hands-on test
+
+Second screenshot confirmed the fixes: circular ring, no grey square, circular shadow, visible
+hairlines + hub, white labels. Task 9 committed (`909d421`).
+
+Two contrast defects the dark HUD exposed, fixed in the same commit:
+- Selected label was coral text on a coral wedge, unreadable. Accent now lives only on the wedge
+  fill; the selected label is white. Empty `+` ghosts dimmed to `white.opacity(0.32)`.
+- Vibrancy over a white editor renders mid grey, so the ring looked flat. Added a
+  `Circle().fill(.black.opacity(0.34))` scrim over the vibrancy. This gives the ring its own
+  ground so hairline/label/accent contrast no longer depends on what is behind the window.
+
+**Task 10 written, builds green, running (NOT committed).** `Snip/EventTap/{TriggerConfig,
+EventTapEngine}.swift` + AppDelegate wiring. Two deliberate departures from the plan:
+1. The tap runs on its own Thread with its own CFRunLoop. A tap on the main run loop dies of
+   `kCGEventTapDisabledByTimeout` the first time main hitches, and we animate on main.
+2. Event mask omits `mouseMoved` for now. The middle-button path gets `otherMouseDragged`
+   (button held), and a permanently enabled `mouseMoved` tap fires on every system-wide pointer
+   move. Add it only when the hotkey-hold trigger lands.
+Also: `magicUserData = 0x534E4950` stamped on our synthetic events so the tap ignores them,
+`tapDisabledByTimeout/ByUserInput` re-enable + cancel any open ring, thumb buttons (3/4) pass
+through, only button 2 is consumed.
+
+BLOCKED (physical input, Alex must do): hold the middle mouse button, drag, release. Verify the
+ring blooms under the cursor, the highlight tracks direction with 6 degree hysteresis stickiness,
+release fires the right slot, center-release cancels, and middle-click no longer opens a new tab
+in a browser (proof the tap consumes the event). Then I pull `log show` to confirm FIRE lines,
+commit Task 10, and build PasteEngine (Task 11) for real insertion.
 
