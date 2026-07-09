@@ -196,9 +196,36 @@ baked in:
    caret before the text exists. Restore waits 0.35s and only fires if `changeCount` is unchanged,
    because macOS gives no signal for "target finished reading the pasteboard".
 
-BLOCKED (physical input, Alex must do): clipboard primed with `CLIP-TEST`. Hold middle mouse,
-drag to DATE / SIG / HI, release. Verify text inserts, the caret parks right after `Hi ` (the `$|`
-marker), Cmd-V still yields `CLIP-TEST` (snapshot/restore works), and the highlight uses the
-system accent. Then commit Task 11 and continue with library window / settings / onboarding
-(plan Tasks 12 to 14).
+## 2026-07-09 (cont.): CORE PRODUCT WORKS END TO END. Task 11 committed
+
+Alex confirmed real insertion works: hold middle mouse, drag, release, snippet text lands at the
+cursor in the frontmost app. Task 11 committed (`4691a43`), which also swapped in the system
+accent. Plan Tasks 1 to 11 are now done and verified. The app does the thing from the original ask.
+
+**Alex: "can we make the ring translucent?" and "nicer appear effect, iOS like, liquid?"**
+Both landed in one pass (built, running, NOT yet committed):
+- Scrim cut from `black.opacity(0.34)` to `0.16`, so the blurred background shows through. Paid
+  for the lost contrast with per-label `shadow(color: .black.opacity(0.55), radius: 2, y: 1)`,
+  a top-down specular sheen gradient, and a gradient rim (white 0.38 top to 0.10 bottom). Type
+  carries its own contrast, the material stays glass. This partially reverses the earlier
+  "give the ring its own ground" decision, on purpose.
+- Bloom: scale 0.72 to 1.0 on an overshooting spring (response 0.34, damping 0.62), a 6 degree
+  counter-rotation that unwinds, labels traveling outward from 55 percent radius on a 14ms
+  per-index stagger, hub springing in on a 40ms delay.
+- Dismiss is deliberately asymmetric: 0.13s easeOut, no bounce. Entrances invite and can afford
+  overshoot; exits acknowledge a committed action and any bounce reads as lag.
+- Did NOT use SwiftUI `.blur()` on the ring: like `.shadow()`, it rasterizes the hosted
+  NSVisualEffectView and would resurrect the rectangle bug.
+
+Two ordering bugs found and fixed in `OverlayPanelController` while doing this:
+1. `hide()` called `orderOut` immediately, so the dismiss animation never played. Now delayed
+   0.16s, guarded by a `generation` counter so a fast re-trigger is not ordered out by the old
+   timer.
+2. `invalidateShadow()` ran while the ring was still at 72 percent scale, snapshotting a shadow
+   for the small circle. Now called again 0.42s later, once the spring settles.
+
+BLOCKED (visual judgment, Alex must do): is the translucency now too weak over busy content
+(if so raise the scrim), and does the 6 degree rotation read as delightful or gimmicky (one line
+to remove). Then commit, and continue with plan Tasks 12 to 14: library window (so Alex can
+create/edit/pin his own snippets instead of the SIG/DATE/HI seeds), settings, onboarding.
 
