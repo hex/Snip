@@ -10,68 +10,62 @@ import QuartzCore
 /// `filters` (which act on a layer's own content) can distort it.
 struct LensDistortionView: NSViewRepresentable {
     var diameter: CGFloat
-    /// Fraction of extra magnification. 0.18 means the backdrop is shown at 1.18x.
-    var magnification: Double = 0.18
-    /// Barrel curvature at the rim, layered on top of the magnification.
-    var curvature: Double = 0.32
+    /// CIBumpDistortion input scale, 0...1. Higher bulges the centre more.
+    var magnification: Double = 0.8
 
     static var isSupported: Bool { NSClassFromString("CABackdropLayer") != nil }
 
     func makeNSView(context: Context) -> LensHostView {
-        LensHostView(diameter: diameter, magnification: magnification, curvature: curvature)
+        LensHostView(diameter: diameter, magnification: magnification)
     }
 
     func updateNSView(_ nsView: LensHostView, context: Context) {
-        nsView.apply(diameter: diameter, magnification: magnification, curvature: curvature)
+        nsView.apply(diameter: diameter, magnification: magnification)
     }
 }
 
 final class LensHostView: NSView {
-    private var backdrop: CALayer?
+    private let diameter: CGFloat
+    private var magnification: Double
 
-    init(diameter: CGFloat, magnification: Double, curvature: Double) {
+    init(diameter: CGFloat, magnification: Double) {
+        self.diameter = diameter
+        self.magnification = magnification
         super.init(frame: NSRect(x: 0, y: 0, width: diameter, height: diameter))
-        wantsLayer = true
-        // Without this, AppKit silently ignores Core Image filters anywhere in this layer tree.
+        // Must be set before the backing layer is created, or Core Image filters are ignored.
         layerUsesCoreImageFilters = true
-        layer?.masksToBounds = true
-        layer?.cornerRadius = diameter / 2
-        apply(diameter: diameter, magnification: magnification, curvature: curvature)
+        wantsLayer = true          // triggers makeBackingLayer()
+        apply(diameter: diameter, magnification: magnification)
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("LensHostView is created in code only") }
 
-    func apply(diameter: CGFloat, magnification: Double, curvature: Double) {
-        layer?.cornerRadius = diameter / 2
-
-        if backdrop == nil { backdrop = makeBackdropLayer() }
-        guard let backdrop else { return }   // class withdrawn: the painted lens still carries the look
-
-        backdrop.frame = CGRect(x: 0, y: 0, width: diameter, height: diameter)
-        backdrop.cornerRadius = diameter / 2
-        backdrop.masksToBounds = true
-
-        // Two independent mechanisms, so losing either still leaves a lens:
-        // `zoom` magnifies in the compositor, the filter curves the rim.
-        backdrop.setValue(1.0 + magnification, forKey: "zoom")
-        backdrop.filters = [bumpFilter(diameter: diameter, scale: curvature)].compactMap { $0 }
-    }
-
-    private func makeBackdropLayer() -> CALayer? {
-        guard let backdropClass = NSClassFromString("CABackdropLayer") as? CALayer.Type else { return nil }
+    /// The backdrop must BE the view's layer, not a sublayer, so AppKit wires it into the
+    /// window's backdrop group. Falls back to an ordinary layer if the class is withdrawn.
+    override func makeBackingLayer() -> CALayer {
+        guard let backdropClass = NSClassFromString("CABackdropLayer") as? CALayer.Type else {
+            return super.makeBackingLayer()
+        }
         let layer = backdropClass.init()
-
-        // Probed on macOS 26: windowServerAware, scale, zoom and captureOnly exist; disableBlur
-        // and blurRadius do not. CALayer stores unknown keys rather than raising, so a withdrawn
+        // Probed on macOS 26. CALayer stores unknown keys rather than raising, so a withdrawn
         // property degrades to a harmless no-op instead of a crash.
-        layer.setValue(true, forKey: "windowServerAware")
+        layer.setValue(true, forKey: "windowServerAware")     // sample across the window server
+        layer.setValue(true, forKey: "allowsInPlaceFiltering") // let `filters` composite on it
         layer.setValue(1.0, forKey: "scale")
-
-        self.layer?.addSublayer(layer)
         return layer
     }
 
+    func apply(diameter: CGFloat, magnification: Double) {
+        self.magnification = magnification
+        guard let layer else { return }
+        layer.masksToBounds = true
+        layer.cornerRadius = diameter / 2
+        layer.filters = [bumpFilter(diameter: diameter, scale: magnification)].compactMap { $0 }
+    }
+
+    /// CIBumpDistortion magnifies the centre and curves the rim. A public filter whose units are
+    /// documented, unlike CABackdropLayer's `zoom` (which defaults to 0, not 1).
     private func bumpFilter(diameter: CGFloat, scale: Double) -> CIFilter? {
         guard let bump = CIFilter(name: "CIBumpDistortion") else { return nil }
         bump.setValue(CIVector(x: diameter / 2, y: diameter / 2), forKey: kCIInputCenterKey)

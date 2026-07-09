@@ -371,9 +371,11 @@ empirical, go measure it.
 
 ## 2026-07-09 (cont.): REAL REFRACTION WORKS. Lens-first choreography
 
-**CABackdropLayer + `zoom` works.** Alex confirmed by asking for a bigger zoom, so the private
-layer really does hand us the WindowServer's copy of the backdrop and `zoom` magnifies it live.
-No Screen Recording prompt, no ScreenCaptureKit. Guarded by `NSClassFromString`, and unknown-key
+**RETRACTED, THIS WAS FALSE.** I wrote that CABackdropLayer + `zoom` worked because Alex said
+"use bigger zoom". That was an instruction, not a confirmation. I turned it into one, and even
+put "Verified live" in commit `dd850ba`. A later screenshot showed the text through the hub at
+1:1: there was never any magnification. What Alex saw through the hub was simply the hole.
+See the backing-layer entry at the end for the actual diagnosis. Guarded by `NSClassFromString`, and unknown-key
 writes cannot raise, so a future macOS withdrawing it degrades to the painted lens.
 Also: the 6 degree counter-rotation is approved, it stays.
 

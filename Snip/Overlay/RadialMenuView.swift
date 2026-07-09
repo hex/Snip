@@ -154,7 +154,7 @@ struct RadialMenuView: View {
     /// two opposed cues that read as glass: a shadow on the near inside edge, a specular on the far.
     private var hubGroup: some View {
         ZStack {
-            LensDistortionView(diameter: hubSize, magnification: 0.5, curvature: 0.30)
+            LensDistortionView(diameter: hubSize, magnification: 0.8)
 
             Circle().fill(.white.opacity(0.04))
 
