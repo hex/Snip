@@ -8,10 +8,16 @@ import QuartzCore
 /// window is transparent there, so it has nothing to bend. `CABackdropLayer` is the layer
 /// `NSVisualEffectView` uses: it owns the WindowServer's copy of what is behind the window, so
 /// `filters` (which act on a layer's own content) can distort it.
+/// Temporary. Renders the hub with an unmistakable colour inversion AND a native zoom, so the
+/// four possible failures are distinguishable by eye. Delete once the lens is understood.
+enum LensDiagnostics {
+    static let enabled = true
+}
+
 struct LensDistortionView: NSViewRepresentable {
     var diameter: CGFloat
     /// CIBumpDistortion input scale, 0...1. Higher bulges the centre more.
-    var magnification: Double = 0.8
+    var magnification: Double = 0.45
 
     static var isSupported: Bool { NSClassFromString("CABackdropLayer") != nil }
 
@@ -61,6 +67,15 @@ final class LensHostView: NSView {
         guard let layer else { return }
         layer.masksToBounds = true
         layer.cornerRadius = diameter / 2
+
+        if LensDiagnostics.enabled {
+            // Colour inversion answers "does the backdrop render and can Core Image touch it?"
+            // `zoom` answers "does the native magnification work?" The two are independent.
+            layer.filters = [CIFilter(name: "CIColorInvert")].compactMap { $0 }
+            layer.setValue(0.6, forKey: "zoom")
+            return
+        }
+
         layer.filters = [bumpFilter(diameter: diameter, scale: magnification)].compactMap { $0 }
     }
 

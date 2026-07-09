@@ -154,7 +154,9 @@ struct RadialMenuView: View {
     /// two opposed cues that read as glass: a shadow on the near inside edge, a specular on the far.
     private var hubGroup: some View {
         ZStack {
-            LensDistortionView(diameter: hubSize, magnification: 0.8)
+            // Past ~0.5 the centre magnifies so hard it samples almost nothing, and a page of
+            // text becomes a white bulge. Legibility is the point of a magnifier.
+            LensDistortionView(diameter: hubSize, magnification: 0.45)
 
             Circle().fill(.white.opacity(0.04))
 

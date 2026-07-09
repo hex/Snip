@@ -423,3 +423,39 @@ Remaining beyond the plan (deferred by the spec, not bugs): v1.5 search palette 
 seam is already built into OverlayPanel), v2 per-app rings, hotkey fallback trigger, per-app
 exclusion list, Developer ID notarization + Sparkle + licensing.
 
+## 2026-07-09 (cont.): ONBOARDING VERIFIED. Lens still unresolved, diagnostic build running
+
+**Onboarding (plan Task 14) is verified.** Alex ran `tccutil reset Accessibility ai.symbiotica.Snip`
+himself. Relaunched Snip untrusted; `CGWindowListCopyWindowInfo` confirmed a "Welcome to Snip"
+window (460x305, layer 0) appeared. Polled the window list every 3s: it CLOSED about 3s after Alex
+toggled the switch. That single observation proves the whole chain: the 1s `AXIsProcessTrusted()`
+poll fired, `onGranted` ran, `restartEventTap()` rebuilt the tap, the window dismissed itself. No
+relaunch. **All 14 plan tasks are now done AND exercised.**
+
+Useful technique: `CGWindowListCopyWindowInfo` exposes window owners and bounds with NO Screen
+Recording permission (only titles of other apps' windows are gated). Good for autonomously
+asserting that a window of ours appeared or vanished.
+
+**The lens is STILL NOT WORKING and I have now misread evidence twice.**
+- Retraction 1 (already recorded): I turned "use bigger zoom" into "verified live".
+- Retraction 2 (new): from a screenshot I claimed "it is bending pixels" because text inside the
+  hub did not look like the continuation of the line. Alex: "I can hardly see any effect in the
+  middle", then "it is way too weak if it even exists". I inferred a MECHANISM from a PICTURE
+  again, one round after writing down that exact lesson.
+
+Stopped tuning numbers (0.5, 0.8, 0.45 were all guesses) and built a discriminating experiment
+instead. `LensDiagnostics.enabled = true` sets `filters = [CIColorInvert]` AND `zoom = 0.6`
+together. Four outcomes, all distinguishable by eye:
+- inverted AND bigger: backdrop renders, CI reaches it, zoom works.
+- inverted only: filters work, `zoom` is dead.
+- bigger only: `filters` are dead on a backdrop layer, `zoom` works.
+- neither: the backdrop never renders in a borderless non-activating panel. STOP, revert to painted.
+
+Leading hypothesis: Core Animation only supports Core Image filters that map pixels 1:1, because it
+composites on the GPU with fixed geometry. `CIBumpDistortion` WARPS COORDINATES, so CA silently
+drops it: no error, no warning, no nil. If so, `CIColorInvert` (a pure per-pixel colour map) will
+invert while the bump never ran, and `zoom` was the right tool from the start.
+
+BLOCKED: Alex reads the diagnostic hub and reports which of the four outcomes he sees. Then either
+ship a real lens or revert to the painted one and delete `LensDiagnostics`. Note the lens is pure
+polish sitting on a finished, verified v1.
