@@ -511,3 +511,38 @@ into the hub at magnification 1.5. Builds, runs, no crash.
 BLOCKED on Alex: does the hub now visibly MAGNIFY the text behind it, and does the ring frost still
 look right after the capture-resolution bump. If yes, commit and the lens is finally done. If the
 loupe is offset or too strong/weak, one-number fixes.
+
+
+## 2026-07-09 (cont.): loupe CORRECTED again. CAPortalLayer never magnified
+
+The integrated CAPortalLayer loupe showed BLURRED, unmagnified content. Fable-1 agent could not be
+resumed (transcript gone), so spawned a fresh Fable (agentId a24f64b9edf61cfe9) with the shipped
+code, the offscreen-prewarm lifecycle, and the symptom.
+
+Fable-2 built a probe of our exact lifecycle and MEASURED, refuting Fable-1: **CAPortalLayer +
+transform never magnifies a CABackdropLayer.** A `windowServerAware` backdrop is procedural; the
+WindowServer re-evaluates it at composite time and samples behind-window content 1:1 for its
+on-screen footprint, ignoring portal/ancestor transforms. Re-measuring Fable-1's "verified"
+screenshots showed they were also 1:1: that recipe never magnified, it just looked plausible under
+blur. The blur I shipped was the un-portaled source NSVisualEffectView at the provider's default
+0.125 (1/8) capture resolution. `sharpenWindowCapture` was harmful: it bumped the SHARED window
+provider scale 0.125 to 2.0 and multiplied the ring frost gaussian radius by 16 (30 to 480).
+
+**The real magnifier (measured, 7 datapoints, exact fit):** a private CABackdropLayer capture group
+= a `captureOnly` provider layer plus a consumer with NEGATIVE `zoom`, same `groupName`, both
+`windowServerAware`, both frame = the hub bounds, provider `scale` = backingScaleFactor. Law:
+`contentScale = 1/(1 + scale*zoom)`, so `zoom = (1/m - 1)/scale` magnifies by m (m=1.5 -> zoom
+-1/6). Sharp, no filters, no portal, no NSVisualEffectView, no strip loop, anchored at consumer
+center, tracks panel movement, no layer leak over 8 show/hide cycles. Fable measured 1.500x exactly
+off screenshot line spacing (60px vs 40px). Keep m >= ~0.4 (zoom must stay > -1/scale, the pole).
+
+Replaced BackdropLoupeView.swift with the measured recipe (deleted SourceEffectView,
+sharpenWindowCapture, wire-retry). No OverlayPanelController change needed. Has a `healthReport`
+computed var. Builds, runs. Probe artifacts: scratchpad/fixed_probe.swift, fixed_show*.png,
+lens_probe2.m, exp1_*.png, repro_probe.swift.
+
+Lesson reinforced: a subagent that BUILDS AN INSTRUMENT AND MEASURES beats one that reasons. Fable-1
+reasoned to a plausible-but-wrong recipe and called it verified; Fable-2 measured and refuted it.
+
+BLOCKED on Alex: does the hub visibly magnify now (~1.5x, sharp), and is the ring frost normal
+(the harmful sharpen is gone). If yes, the lens is finally done.

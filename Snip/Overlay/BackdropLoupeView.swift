@@ -1,128 +1,105 @@
-// ABOUTME: A live, magnified view of the OTHER apps' pixels behind the overlay window: a real loupe.
-// ABOUTME: Rendered by the WindowServer (no Screen Recording), via private CAPortalLayer + CABackdropLayer.
+// ABOUTME: A live, magnified view of the content behind the overlay window: a real loupe.
+// ABOUTME: A private CABackdropLayer capture group (captureOnly provider + negative-zoom consumer).
 import AppKit
 import QuartzCore
 import SwiftUI
 
-/// Approach verified on macOS 26 (Tahoe): a `CAPortalLayer` mirroring a real, AppKit-wired
-/// `NSVisualEffectView` backdrop re-renders the live behind-window feed AND honors transforms,
-/// so scaling the portal magnifies it. A hand-rolled CABackdropLayer receives nothing, and the
-/// backdrop's own `zoom` only zooms out, so the portal is the only route to a magnify-in loupe.
+/// Verified on macOS 26 (Tahoe): the WindowServer remaps the behind-window capture around the
+/// consumer's centre by `contentScale = 1 / (1 + scale·zoom)`, so `zoom = (1/m − 1)/scale`
+/// magnifies by `m`. Sharp, no filters, no portal, independent of the ring frost's backdrop group.
+/// A CAPortalLayer + transform does NOT work: a windowServerAware backdrop always samples 1:1.
 /// All private API. Gate on `isSupported`; the painted lens is the fallback.
 final class BackdropLoupeView: NSView {
+
     var magnification: CGFloat = 1.5 {
-        didSet { portal?.transform = CATransform3DMakeScale(magnification, magnification, 1) }
+        didSet { applyZoom() }
     }
 
     static var isSupported: Bool {
-        NSClassFromString("CAPortalLayer") is CALayer.Type && NSClassFromString("CABackdropLayer") != nil
+        NSClassFromString("CABackdropLayer") != nil
     }
 
-    private let source = SourceEffectView()
-    private var portal: CALayer?
-    private var wireAttempts = 0
+    private let groupName = "BackdropLoupe." + UUID().uuidString
+    private var provider: CALayer?
+    private var consumer: CALayer?
 
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
-        layer?.masksToBounds = true            // circular clip for the loupe content
-        source.frame = bounds
-        source.autoresizingMask = [.width, .height]
-        source.material = .hudWindow
-        source.blendingMode = .behindWindow    // makes AppKit register + wire the backdrop
-        source.state = .active
-        addSubview(source)
+        layer?.masksToBounds = true
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("BackdropLoupeView is created in code only") }
 
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window == nil { teardown() } else { wire() }
+    }
+
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        applyZoom()
+    }
+
     override func layout() {
         super.layout()
         layer?.cornerRadius = min(bounds.width, bounds.height) / 2
-        portal?.position = CGPoint(x: bounds.midX, y: bounds.midY)
-    }
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        guard window != nil, portal == nil, Self.isSupported else { return }
-        wireAttempts = 0
-        scheduleWire()
-    }
-
-    private func scheduleWire() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in self?.wire() }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        provider?.frame = bounds
+        consumer?.frame = bounds
+        CATransaction.commit()
+        applyZoom()
     }
 
     private func wire() {
-        guard portal == nil, window != nil, let host = layer, let srcLayer = source.layer,
-              let backdrop = Self.backdropLayers(in: srcLayer).first
-        else {
-            wireAttempts += 1
-            if wireAttempts < 40, window != nil { scheduleWire() }   // backdrop is built lazily
-            return
-        }
-        source.strip()
-        sharpenWindowCapture()
-
-        guard let portalClass = NSClassFromString("CAPortalLayer") as? CALayer.Type else { return }
-        let p = portalClass.init()
-        p.setValue(true, forKey: "allowsBackdropGroups")
-        p.setValue(backdrop, forKey: "sourceLayer")
-        p.setValue(true, forKey: "hidesSourceLayer")
-        p.bounds = backdrop.bounds
-        p.position = CGPoint(x: bounds.midX, y: bounds.midY)
-        p.transform = CATransform3DMakeScale(magnification, magnification, 1)
+        guard consumer == nil, Self.isSupported, let host = layer,
+              let backdropClass = NSClassFromString("CABackdropLayer") as? CALayer.Type else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        let p = backdropClass.init()
+        p.setValue(true, forKey: "captureOnly")
+        p.setValue(true, forKey: "windowServerAware")
+        p.setValue(groupName, forKey: "groupName")
+        p.frame = bounds
+        let c = backdropClass.init()
+        c.setValue(true, forKey: "windowServerAware")
+        c.setValue(groupName, forKey: "groupName")
+        c.frame = bounds
         host.addSublayer(p)
-        portal = p
+        host.addSublayer(c)
+        CATransaction.commit()
+        provider = p
+        consumer = c
+        applyZoom()
     }
 
-    /// The window-root capture provider samples at 0.125x (blur-grade). Raise it to the backing
-    /// scale so a magnified loupe stays sharp. Side effect: the ring's frost sharpens too, so scale
-    /// every consumer's gaussianBlur radius to keep the frost looking the same.
-    private func sharpenWindowCapture() {
-        guard var root = layer else { return }
-        while let parent = root.superlayer { root = parent }
-        let all = Self.backdropLayers(in: root)
-        guard let provider = all.first(where: { ($0.value(forKey: "captureOnly") as? Bool) == true }),
-              let old = provider.value(forKey: "scale") as? CGFloat else { return }
-        let new = window?.backingScaleFactor ?? 2
-        guard old < new else { return }
-        provider.setValue(new, forKey: "scale")
-        for consumer in all where consumer !== provider {
-            for filter in consumer.filters ?? [] {
-                let f = filter as AnyObject
-                if (f.value(forKey: "name") as? String) == "gaussianBlur",
-                   let radius = f.value(forKey: "inputRadius") as? CGFloat {
-                    f.setValue(radius * new / old, forKey: "inputRadius")
-                }
-            }
-        }
+    private func teardown() {
+        provider?.removeFromSuperlayer()
+        consumer?.removeFromSuperlayer()
+        provider = nil
+        consumer = nil
     }
 
-    static func backdropLayers(in layer: CALayer) -> [CALayer] {
-        var out: [CALayer] = []
-        if String(describing: type(of: layer)) == "CABackdropLayer" { out.append(layer) }
-        for sub in layer.sublayers ?? [] { out += backdropLayers(in: sub) }
-        return out
-    }
-}
-
-/// AppKit re-applies the material recipe in `updateLayer`, so re-strip every pass to keep the
-/// mirrored feed sharp and free of the material's fill/tint.
-private final class SourceEffectView: NSVisualEffectView {
-    override func updateLayer() {
-        super.updateLayer()
-        strip()
+    private func applyZoom() {
+        guard let provider, let consumer else { return }
+        let scale = window?.backingScaleFactor ?? 2
+        provider.setValue(scale, forKey: "scale")
+        let m = max(magnification, 0.01)   // zoom must stay > -1/scale (the formula's pole)
+        consumer.setValue((1 / m - 1) / scale, forKey: "zoom")
     }
 
-    func strip() {
-        guard let root = layer,
-              let backdrop = BackdropLoupeView.backdropLayers(in: root).first else { return }
-        backdrop.filters = []                                          // strip blur -> sharp feed
-        for sibling in backdrop.superlayer?.sublayers ?? [] where sibling !== backdrop {
-            sibling.opacity = 0                                        // fill / tone / desktop tint
-        }
+    /// Reports whether the loupe is wired, sharp, and its effective magnification, so the result
+    /// can be confirmed from values rather than inferred from a screenshot.
+    var healthReport: String {
+        guard let c = consumer, let p = provider else { return "LOUPE: NOT WIRED (consumer=nil)" }
+        let zoom = (c.value(forKey: "zoom") as? CGFloat) ?? 0
+        let scale = (p.value(forKey: "scale") as? CGFloat) ?? 0
+        let mag = 1 / (1 + scale * zoom)
+        let sharp = (c.filters ?? []).isEmpty
+        let inTree = c.superlayer === layer && p.superlayer === layer
+        return "LOUPE: wired=\(inTree) sharp=\(sharp) providerScale=\(scale) zoom=\(String(format: "%.4f", zoom)) effectiveMag=\(String(format: "%.2f", mag))x"
     }
 }
 
