@@ -126,7 +126,32 @@ by `RadialViewModel.isVisible`, flipped on the NEXT runloop tick after `orderFro
 (setting it synchronously would skip the animation). Debug menu item blooms after a 3s delay so
 the tester can hand focus to TextEdit first, making it a genuine non-activating test.
 
-BLOCKED (GUI-only, Alex must do): confirm the ring renders (frosted, 8 wedges, SIG top / DATE
-upper-right / HI lower-left highlighted coral, ghosted `+` on empties) AND that TextEdit keeps
-focus while the ring is up. Then commit Task 9 → Task 10 (EventTapEngine).
+## 2026-07-09 (cont.): Overlay renders; non-activating panel CONFIRMED
+
+Alex sent a screenshot of the ring blooming over Zed. Verdict:
+- Ring geometry CORRECT: SIG top (slot 0), DATE upper-right (slot 1), HI lower-left (slot 5)
+  with coral highlight + scaled label, five ghosted `+` empties. WedgeShape/SpokesShape math good.
+- **Non-activating panel CONFIRMED**: Zed's traffic lights stayed active while the ring was up.
+  This is the make-or-break property (otherwise insertion would target Snip, not the app).
+
+**BUG FOUND (and fixed): a grey square exactly the panel's 236x236 content rect.**
+Root cause: `NSVisualEffectView` with `blendingMode = .behindWindow` IGNORES SwiftUI's
+`.clipShape()`. The WindowServer composites behind-window vibrancy outside the layer-mask path,
+so the material paints its full square bounds. **Only AppKit's `maskImage` actually clips it.**
+Fable's architecture review said exactly this ("maskImage shaped to the ring") and I used
+clipShape anyway. Lesson: implement the review, don't just read it.
+
+Three fixes applied (build green, relaunched, awaiting Alex's re-check):
+1. `VisualEffectView` now takes a `diameter` and sets `maskImage` to a filled circle NSImage.
+2. Panel forced to `NSAppearance(named: .vibrantDark)`. A transient HUD floats over arbitrary
+   content, so inheriting the system theme makes legibility a coin flip; committing to dark lets
+   the hairline/label opacities be tuned once. Also matches CleanShot's dark overlays. (Previously
+   the hardcoded `white.opacity(0.1x)` hairlines/hub/border were invisible on Alex's light theme.)
+3. Removed SwiftUI `.shadow()`: it rasterizes a hosted NSView as its bounding rect. Instead
+   `panel.hasShadow = true` + `panel.invalidateShadow()` in `show()`, so macOS derives a circular
+   shadow from the masked content's alpha.
+
+BLOCKED (GUI-only): Alex re-checks the ring (expect no grey square, dark frosted circle, visible
+white hairlines + hub, circular shadow). Then commit Task 9 and start Task 10 (EventTapEngine),
+so a real middle-mouse hold replaces the debug menu item.
 
