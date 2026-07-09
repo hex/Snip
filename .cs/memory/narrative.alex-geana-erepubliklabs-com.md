@@ -310,11 +310,37 @@ against light content, and a topLeading-lit rim over that.
 Lesson recorded: I described the donut-bleed mechanism confidently without ever observing it.
 A mechanism reasoned about but not observed is a hypothesis, not a fact. Do not narrate it as one.
 
-BLOCKED (visual judgment, Alex must do): hold near the top of the screen (ring should stay on the
-cursor and overlap the menu bar), and check whether the hub now reads as ground glass or too heavy
-(`black.opacity(0.40)` inner shadow / `white.opacity(0.45)` specular are easy to dial back). Still
-open: is the 6 degree counter-rotation delightful or gimmicky (one line to remove). Then commit,
-and finish plan Tasks 13 (settings) and 14 (onboarding + remove debug menu items). Note: testing
-onboarding needs `tccutil reset Accessibility ai.symbiotica.Snip`, which revokes Alex's current
-grant, so ask before running it.
+## 2026-07-09 (cont.): real refraction spike (CALayer.backgroundFilters)
+
+Alex confirmed the cursor-centering fix and the lens look ("cool"), but: "there is no visual
+distortion of the content visible through our fake magnifying glass." Correct. Nothing was
+sampling the pixels behind the window. `NSVisualEffectView` can blur and tint the backdrop, it
+cannot warp it.
+
+Three ways to actually get backdrop pixels on macOS:
+1. `CALayer.backgroundFilters` + `NSView.layerUsesCoreImageFilters = true`. PUBLIC. Historically
+   composited across windows; the modern WindowServer may have quietly limited it to in-window
+   content. Never formally deprecated, just changed. Undocumented for macOS 26.
+2. `CABackdropLayer` + CIFilter. PRIVATE (the class NSVisualEffectView uses). Live, cheap, no
+   permission, but the signature UI would rest on an undocumented class.
+3. ScreenCaptureKit snapshot + `CIGlassDistortion`. PUBLIC and real, but needs the Screen Recording
+   permission. A second scary prompt on a snippet app, for a decorative effect.
+
+**Spiked option 1** (`Snip/Overlay/LensDistortionView.swift`, ~30 lines): NSViewRepresentable with
+`layerUsesCoreImageFilters = true`, circular `masksToBounds` layer, `backgroundFilters =
+[CIBumpDistortion]` centered in the hub. Built, running, NOT committed. Outcome genuinely unknown.
+The uncertainty is written into the file's comment rather than asserted as fact, after last round's
+lesson about narrating unobserved mechanisms.
+
+My recommendation if the spike renders nothing: do NOT chase it. The gap between a very good
+painted lens and true refraction is small; the gap between "asks for Accessibility" and "asks for
+Accessibility AND to record your screen" is enormous. Private API holding up the signature UI is
+the worse trade of the two remaining.
+
+BLOCKED (visual judgment, Alex must do): hold middle mouse over text and look at the hub. Does the
+text bulge/magnify (backgroundFilters still works across windows) or look unchanged (restricted to
+in-window content)? Decide from evidence. Still open: is the 6 degree counter-rotation delightful
+or gimmicky. Then commit, and finish plan Tasks 13 (settings) and 14 (onboarding + remove debug
+menu items). Note: testing onboarding needs `tccutil reset Accessibility ai.symbiotica.Snip`, which
+revokes Alex's current grant, so ask before running it.
 
