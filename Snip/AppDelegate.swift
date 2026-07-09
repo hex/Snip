@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let paster = PasteEngine()
     private var libraryWindow: NSWindow?
     private var settingsWindow: NSWindow?
+    private var onboardingWindow: NSWindow?
     let model = AppModel()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -32,11 +33,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         menu.addItem(NSMenuItem.separator())
         menu.addItem(withTitle: "Grant Accessibility…", action: #selector(grantAccessibility), keyEquivalent: "")
-        menu.addItem(withTitle: "Smoke: paste \"hello\"", action: #selector(smokePaste), keyEquivalent: "")
-        menu.addItem(withTitle: "Debug: bloom ring in 3s", action: #selector(debugBloom), keyEquivalent: "")
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit Snip", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         statusItem.menu = menu
+
+        if !permissions.isTrusted { openOnboarding() }
+    }
+
+    @objc private func openOnboarding() {
+        if onboardingWindow == nil {
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 320),
+                                  styleMask: [.titled, .closable],
+                                  backing: .buffered, defer: false)
+            window.title = "Welcome to Snip"
+            window.contentView = NSHostingView(rootView: OnboardingView(
+                isTrusted: { [weak self] in self?.permissions.isTrusted ?? false },
+                requestTrust: { [weak self] in self?.permissions.requestTrust() },
+                onGranted: { [weak self] in
+                    self?.restartEventTap()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                        self?.onboardingWindow?.close()
+                    }
+                }))
+            window.isReleasedWhenClosed = false
+            window.center()
+            onboardingWindow = window
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        onboardingWindow?.makeKeyAndOrderFront(nil)
     }
 
     /// Gives a fresh install something on the ring so the radial is testable immediately.
@@ -115,32 +139,4 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         restartEventTap()
     }
 
-    /// Blooms after a delay so the tester can hand focus to another app first —
-    /// proving the panel appears without activating Snip.
-    @objc private func debugBloom() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-            let mouse = NSEvent.mouseLocation
-            let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
-            self.overlay.show(atQuartz: CGPoint(x: mouse.x, y: primaryHeight - mouse.y))
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                self.overlay.update(selection: .wedge(5))   // "HI" slot
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
-                self.overlay.hide()
-            }
-        }
-    }
-
-    @objc private func smokePaste() {
-        guard permissions.isTrusted else { NSSound.beep(); return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString("hello", forType: .string)
-        let src = CGEventSource(stateID: .combinedSessionState)
-        let vDown = CGEvent(keyboardEventSource: src, virtualKey: 0x09, keyDown: true)   // 'v'
-        let vUp   = CGEvent(keyboardEventSource: src, virtualKey: 0x09, keyDown: false)
-        vDown?.flags = .maskCommand
-        vUp?.flags = .maskCommand
-        vDown?.post(tap: .cghidEventTap)
-        vUp?.post(tap: .cghidEventTap)
-    }
 }

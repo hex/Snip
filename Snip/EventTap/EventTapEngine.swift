@@ -18,10 +18,13 @@ final class EventTapEngine {
     private var runLoopSource: CFRunLoopSource?
     private var tapRunLoop: CFRunLoop?
 
-    private let session = RadialSession(wedgeCount: 8, deadZoneRadius: 24, hysteresisDegrees: 6)
+    /// The dead zone matches the ring's see-through hub, so the visible hole IS the cancel target.
+    private let session = RadialSession(wedgeCount: 8, deadZoneRadius: 35, hysteresisDegrees: 6)
     private var isOpen = false
     private var anchor = CGPoint.zero
     private var selection: RadialSelection = .none
+    /// If the tap dies mid-hold we never see mouseUp, and the ring would hang on screen forever.
+    private var watchdog: DispatchWorkItem?
 
     init(config: TriggerConfig,
          permissions: PermissionsCoordinator,
@@ -111,6 +114,7 @@ final class EventTapEngine {
             anchor = event.location
             selection = .none
             isOpen = true
+            armWatchdog()
             DispatchQueue.main.async { self.onBloom(self.anchor) }
             return nil   // consume: the app underneath never sees the middle click
 
@@ -121,6 +125,7 @@ final class EventTapEngine {
         case .otherMouseUp where isOpen && isMiddleButton:
             let committed = selection
             isOpen = false
+            watchdog?.cancel()
             DispatchQueue.main.async { self.onCommit(committed) }
             return nil
 
@@ -138,8 +143,22 @@ final class EventTapEngine {
         DispatchQueue.main.async { self.onPointer(next) }
     }
 
+    /// Ground truth beats our own bookkeeping: if the button is genuinely still down, keep waiting.
+    private func armWatchdog() {
+        watchdog?.cancel()
+        let item = DispatchWorkItem { [weak self] in
+            guard let self, self.isOpen else { return }
+            let stillHeld = CGEventSource.buttonState(.combinedSessionState, button: .center)
+            guard !stillHeld else { self.armWatchdog(); return }
+            self.closeAndCancel()
+        }
+        watchdog = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4, execute: item)
+    }
+
     private func closeAndCancel() {
         isOpen = false
+        watchdog?.cancel()
         DispatchQueue.main.async { self.onCancel() }
     }
 }
