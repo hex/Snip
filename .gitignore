@@ -15,6 +15,14 @@
 # Claude Code local settings (recreated by cs on each machine)
 .claude/settings.local.json
 
+# Swift / Xcode build artifacts
+.build/
+SnipKit/.build/
+build/
+DerivedData/
+Snip.xcodeproj/
+*.xcuserstate
+
 # OS files
 .DS_Store
 Thumbs.db
