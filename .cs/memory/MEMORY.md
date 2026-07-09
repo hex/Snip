@@ -1,0 +1,1 @@
+- [Session narrative — alex-geana-erepubliklabs-com (lab notebook)](narrative.alex-geana-erepubliklabs-com.md): looser-bar work-in-progress; read all narrative.*.md on resume
