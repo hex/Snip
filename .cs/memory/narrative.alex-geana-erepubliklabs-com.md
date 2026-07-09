@@ -174,9 +174,31 @@ Also: `magicUserData = 0x534E4950` stamped on our synthetic events so the tap ig
 `tapDisabledByTimeout/ByUserInput` re-enable + cancel any open ring, thumb buttons (3/4) pass
 through, only button 2 is consumed.
 
-BLOCKED (physical input, Alex must do): hold the middle mouse button, drag, release. Verify the
-ring blooms under the cursor, the highlight tracks direction with 6 degree hysteresis stickiness,
-release fires the right slot, center-release cancels, and middle-click no longer opens a new tab
-in a browser (proof the tap consumes the event). Then I pull `log show` to confirm FIRE lines,
-commit Task 10, and build PasteEngine (Task 11) for real insertion.
+## 2026-07-09 (cont.): Task 10 COMMITTED; Task 11 (PasteEngine) awaiting hands-on test
+
+Alex confirmed the middle-mouse gesture works. Task 10 committed (`f465c05`).
+NSLog does not surface in unified logging for this process (`/usr/bin/log show` found nothing;
+note a shell alias shadows `log`, use the absolute path). Did not chase it: Task 11 makes firing
+directly observable as inserted text, which verifies slot correctness better than a log line.
+
+**Alex: "we should use the system accent color."** Swapped the hardcoded coral for
+`Color(nsColor: .controlAccentColor)`, the user's System Settings accent. It is a dynamic color,
+so it resolves correctly against the panel's forced dark appearance. Caveat noted: the Graphite
+accent will render the highlight grey against our grey ring, losing salience.
+
+**Task 11 written, builds green, running (NOT committed).** `Snip/Paste/PasteEngine.swift` plus
+AppDelegate wiring (`fire()` now calls `paster.insert(snippet)`). Two non-obvious ordering rules
+baked in:
+1. Resolve tokens BEFORE snapshotting/overwriting the pasteboard, else `{clipboard}` expands to
+   the snippet's own text (self-referential loop).
+2. Wait 0.12s after posting Cmd-V before the left-arrow burst. The target processes the paste as
+   a menu action which can complete after immediately-queued key events, so early arrows move the
+   caret before the text exists. Restore waits 0.35s and only fires if `changeCount` is unchanged,
+   because macOS gives no signal for "target finished reading the pasteboard".
+
+BLOCKED (physical input, Alex must do): clipboard primed with `CLIP-TEST`. Hold middle mouse,
+drag to DATE / SIG / HI, release. Verify text inserts, the caret parks right after `Hi ` (the `$|`
+marker), Cmd-V still yields `CLIP-TEST` (snapshot/restore works), and the highlight uses the
+system accent. Then commit Task 11 and continue with library window / settings / onboarding
+(plan Tasks 12 to 14).
 
