@@ -4,14 +4,27 @@ import Foundation
 import Observation
 import SnipKit
 
+/// An app where Snip lets the middle button through instead of opening the ring.
+struct IgnoredApp: Codable, Identifiable, Equatable {
+    var bundleID: String
+    var name: String
+    var id: String { bundleID }
+}
+
 @Observable
 final class AppModel {
     private static let triggerConfigKey = "triggerConfig"
+    private static let ignoredAppsKey = "ignoredApps"
 
     var library: SnippetLibrary
     var triggerConfig: TriggerConfig {
         didSet { persistTriggerConfig() }
     }
+    /// Apps where the middle-mouse trigger is suppressed (e.g. Blender, where it means orbit).
+    var ignoredApps: [IgnoredApp] {
+        didSet { persistIgnoredApps() }
+    }
+    var ignoredBundleIDs: Set<String> { Set(ignoredApps.map(\.bundleID)) }
     private let store: SnippetStore
 
     init() {
@@ -26,11 +39,23 @@ final class AppModel {
         } else {
             triggerConfig = TriggerConfig()
         }
+
+        if let data = UserDefaults.standard.data(forKey: Self.ignoredAppsKey),
+           let apps = try? JSONDecoder().decode([IgnoredApp].self, from: data) {
+            ignoredApps = apps
+        } else {
+            ignoredApps = []
+        }
     }
 
     private func persistTriggerConfig() {
         guard let data = try? JSONEncoder().encode(triggerConfig) else { return }
         UserDefaults.standard.set(data, forKey: Self.triggerConfigKey)
+    }
+
+    private func persistIgnoredApps() {
+        guard let data = try? JSONEncoder().encode(ignoredApps) else { return }
+        UserDefaults.standard.set(data, forKey: Self.ignoredAppsKey)
     }
 
     func snippet(inSlot slot: Int) -> Snippet? {

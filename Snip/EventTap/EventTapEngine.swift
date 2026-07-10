@@ -26,14 +26,23 @@ final class EventTapEngine {
     /// If the tap dies mid-hold we never see mouseUp, and the ring would hang on screen forever.
     private var watchdog: DispatchWorkItem?
 
+    // Frontmost-app tracking for the per-app ignore list. NSWorkspace is main-thread AppKit, so the
+    // frontmost id is cached on main and read (locked) from the tap thread on the hot path.
+    private let ignoreLock = NSLock()
+    private var ignoredBundleIDs: Set<String>
+    private var frontmostBundleID: String?
+    private var workspaceObserver: NSObjectProtocol?
+
     init(config: TriggerConfig,
          permissions: PermissionsCoordinator,
+         ignoredBundleIDs: Set<String>,
          onBloom: @escaping (CGPoint) -> Void,
          onPointer: @escaping (RadialSelection) -> Void,
          onCommit: @escaping (RadialSelection) -> Void,
          onCancel: @escaping () -> Void) {
         self.config = config
         self.permissions = permissions
+        self.ignoredBundleIDs = ignoredBundleIDs
         self.onBloom = onBloom
         self.onPointer = onPointer
         self.onCommit = onCommit
@@ -45,6 +54,8 @@ final class EventTapEngine {
     @discardableResult
     func start() -> Bool {
         guard permissions.isTrusted else { return false }
+
+        observeFrontmost()
 
         let mask: CGEventMask =
             (1 << CGEventType.otherMouseDown.rawValue) |
@@ -86,9 +97,35 @@ final class EventTapEngine {
     func stop() {
         if let tap { CGEvent.tapEnable(tap: tap, enable: false) }
         if let tapRunLoop { CFRunLoopStop(tapRunLoop) }
+        if let workspaceObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(workspaceObserver)
+        }
         tap = nil
         runLoopSource = nil
         tapRunLoop = nil
+        workspaceObserver = nil
+    }
+
+    // MARK: - Per-app ignore list
+
+    private func observeFrontmost() {
+        updateFrontmost(NSWorkspace.shared.frontmostApplication?.bundleIdentifier)
+        workspaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            self?.updateFrontmost(app?.bundleIdentifier)
+        }
+    }
+
+    private func updateFrontmost(_ bundleID: String?) {
+        ignoreLock.lock(); frontmostBundleID = bundleID; ignoreLock.unlock()
+    }
+
+    private var frontmostIsIgnored: Bool {
+        ignoreLock.lock(); defer { ignoreLock.unlock() }
+        guard let id = frontmostBundleID else { return false }
+        return ignoredBundleIDs.contains(id)
     }
 
     private func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
@@ -111,6 +148,8 @@ final class EventTapEngine {
 
         switch type {
         case .otherMouseDown where isMiddleButton:
+            // Let the middle button through in ignored apps (e.g. Blender orbit, browser new-tab).
+            if frontmostIsIgnored { return Unmanaged.passUnretained(event) }
             anchor = event.location
             selection = .none
             isOpen = true

@@ -24,7 +24,10 @@ final class OverlayPanel: NSPanel {
                    styleMask: [.borderless, .nonactivatingPanel],
                    backing: .buffered,
                    defer: false)
-        level = .screenSaver
+        // Above everything, including apps in "traditional" (non-native) fullscreen that raise
+        // their own window to a high level to cover the menu bar (e.g. iTerm). .screenSaver was
+        // not enough. .canJoinAllSpaces still covers native fullscreen (its own Space).
+        level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()))
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         isFloatingPanel = true
         hidesOnDeactivate = false

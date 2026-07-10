@@ -629,3 +629,31 @@ Deliberate exception: staging-dim-background does NOT apply. Snip's overlay must
 document behind it, you are inserting into that content and the loupe magnifies it.
 
 Builds, runs (pid 29962). Every knob is a single dial. BLOCKED on Alex: does it feel snappy now.
+
+
+## 2026-07-10 (cont.): fullscreen overlay fix + per-app ignore list
+
+Alex: "solve the app ignore stuff, also iTerm in fullscreen and the ring doesnt appear on top."
+Read "app ignore stuff" as the deferred per-app exclusion list (spec risk 10). Built both.
+
+1. Fullscreen: raised OverlayPanel level from `.screenSaver` (1000) to
+   `NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()))`. `.canJoinAllSpaces` already covers
+   NATIVE fullscreen (own Space); the failure was iTerm "traditional" (non-native) fullscreen,
+   which raises its own window to a high level to cover the menu bar and was beating 1000.
+   Shielding level is above that.
+
+2. Per-app ignore list: apps where the middle button passes through instead of opening the ring.
+   - AppModel: `IgnoredApp {bundleID, name}`, `ignoredApps: [IgnoredApp]` persisted to UserDefaults,
+     `ignoredBundleIDs` computed.
+   - EventTapEngine: tracks frontmost app via NSWorkspace.didActivateApplicationNotification
+     (main thread), caches the bundle id under an NSLock, and the tap thread reads it on
+     otherMouseDown. If frontmost is ignored -> `return passUnretained(event)` (no consume, no
+     bloom). NSWorkspace is main-thread AppKit, cannot be called from the tap thread, hence the
+     cached-and-locked pattern.
+   - SettingsView: "Suppress in these apps" section; "Add Application…" uses NSOpenPanel
+     (/Applications, .application), reads Bundle(url:).bundleIdentifier; remove buttons. Changes
+     call onConfigChanged() which restarts the tap with the new ignored set.
+
+Builds, runs (pid 28032). BLOCKED on Alex: (a) does the ring now appear over iTerm fullscreen;
+(b) add an app in Settings and confirm the middle button passes through there while still working
+elsewhere. Also: confirm "app ignore stuff" == the exclusion list (my interpretation).
