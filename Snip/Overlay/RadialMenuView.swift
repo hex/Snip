@@ -79,12 +79,14 @@ struct RadialMenuView: View {
     private let accent = Color(nsColor: .controlAccentColor)
 
     // The lens irises in first, then the ring unfurls around it, so the eye gets an anchor.
-    private let ringDelay = 0.16
-    private let labelDelay = 0.24
+    // Delays are short: the sequence should read as one quick gesture, not a slideshow.
+    private let ringDelay = 0.07
+    private let labelDelay = 0.12
 
-    private var lensBloom: Animation { .spring(response: 0.34, dampingFraction: 0.58) }
-    private var bloom: Animation { .spring(response: 0.36, dampingFraction: 0.6) }
-    private var dismiss: Animation { .easeOut(duration: 0.14) }
+    // Snappy springs: response under 300ms, still low-damped enough to overshoot for life.
+    private var lensBloom: Animation { .spring(response: 0.24, dampingFraction: 0.6) }
+    private var bloom: Animation { .spring(response: 0.26, dampingFraction: 0.64) }
+    private var dismiss: Animation { .easeIn(duration: 0.12) }
 
     /// An exit is not an entrance in reverse: it barely shrinks, and it never un-rotates.
     private var hiddenScale: CGFloat { model.isDismissing ? 0.94 : 0.72 }

@@ -71,18 +71,20 @@ final class BackdropLoupeView: NSView {
 
         if shown {
             fade.toValue = 1
-            fade.duration = 0.26
+            fade.duration = 0.16
             fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
             host.opacity = 1
             host.add(fade, forKey: "fade")
 
+            // Stiff + moderately damped: still overshoots for life, but settles in ~280ms,
+            // not the ~615ms a low-stiffness bouncy spring takes.
             let iris = CASpringAnimation(keyPath: "transform.scale")
-            iris.fromValue = 0.35
+            iris.fromValue = 0.4
             iris.toValue = 1
-            iris.damping = 13
-            iris.stiffness = 170
+            iris.damping = 27
+            iris.stiffness = 700
             iris.mass = 1
-            iris.initialVelocity = 3
+            iris.initialVelocity = 9
             iris.duration = iris.settlingDuration
             aperture.transform = CATransform3DIdentity
             aperture.add(iris, forKey: "iris")

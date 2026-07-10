@@ -611,3 +611,21 @@ ringDelay 0.16. Builds, runs (pid 14955). Barrel mechanism itself is Fable-verif
 animation/visual only.
 
 BLOCKED on Alex: is the snap gone (smooth elastic iris then ring), and is it sexier now.
+
+
+## 2026-07-10 (cont.): animation felt slow; tightened per 12-principles audit
+
+Alex: "now the animation feels slow" + /12-principles-of-animation. Audited the overlay motion.
+Root cause: I tuned the iris spring for elasticity (damping 13, stiffness 170, damping ratio ~0.5)
+and forgot a low damping ratio stretches SETTLING time to ~4/(zeta*omega0) = ~615ms. A bouncy
+spring is a SLOW spring unless stiffness is also raised. Snappy and elastic are not opposites.
+
+Fixes (all timing-under-300ms): iris spring stiffness 170->700, damping 13->27, initialVelocity
+3->9 -> settles ~280ms, still overshoots. reveal fade 0.26->0.16. lensBloom response 0.34->0.24,
+bloom response 0.36->0.26. ringDelay 0.16->0.07, labelDelay 0.24->0.12. Exit easing (dismiss)
+easeOut->easeIn (easing-exit-ease-in). Same lens-then-ring choreography, ~1/3 the wall time.
+
+Deliberate exception: staging-dim-background does NOT apply. Snip's overlay must not dim the
+document behind it, you are inserting into that content and the loupe magnifies it.
+
+Builds, runs (pid 29962). Every knob is a single dial. BLOCKED on Alex: does it feel snappy now.
