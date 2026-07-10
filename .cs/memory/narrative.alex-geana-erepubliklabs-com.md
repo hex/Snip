@@ -679,3 +679,17 @@ Finder…" (the NSOpenPanel). Ignored rows show the app icon. Builds, runs (pid 
 
 BLOCKED on Alex for the picker: open Settings, does the Running Applications submenu list apps with
 icons and add them. Fullscreen fix pending Fable.
+
+
+## 2026-07-10 (cont.): settings tabbed; still waiting on Fable for fullscreen
+
+Alex: picker "works" but "the ui is kinda ugly" (vs Mos/CleanShot). The ugliness was information
+architecture: one grouped Form with two concerns in an oversized window = empty/unfinished. Split
+SettingsView into a TabView with two panes: Trigger (the toggle + keyboard-fallback note) and
+Exceptions (the suppress list + running-apps add menu), each sized to content, app icons + help
+tooltips on rows. Committed e9ad5e4. If Alex wants the true CleanShot toolbar-with-icons style
+(not SwiftUI pill tabs), that needs a hand-built NSToolbar; offered.
+
+Fable (background) still investigating the fullscreen-over-native-fullscreen Spaces fix in
+OverlayPanel.swift/OverlayPanelController.swift. Awaiting completion notification; apply its diff
+then. Do not edit those two files meanwhile.
