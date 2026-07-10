@@ -78,12 +78,12 @@ struct RadialMenuView: View {
     /// The user's System Settings accent. Dynamic, so it resolves against the panel's dark appearance.
     private let accent = Color(nsColor: .controlAccentColor)
 
-    // The lens lands first and the ring unfurls around it, so the eye gets an anchor.
-    private let ringDelay = 0.10
-    private let labelDelay = 0.17
+    // The lens irises in first, then the ring unfurls around it, so the eye gets an anchor.
+    private let ringDelay = 0.16
+    private let labelDelay = 0.24
 
-    private var lensBloom: Animation { .spring(response: 0.30, dampingFraction: 0.60) }
-    private var bloom: Animation { .spring(response: 0.34, dampingFraction: 0.62) }
+    private var lensBloom: Animation { .spring(response: 0.34, dampingFraction: 0.58) }
+    private var bloom: Animation { .spring(response: 0.36, dampingFraction: 0.6) }
     private var dismiss: Animation { .easeOut(duration: 0.14) }
 
     /// An exit is not an entrance in reverse: it barely shrinks, and it never un-rotates.
@@ -150,21 +150,39 @@ struct RadialMenuView: View {
 
     // MARK: - Lens
 
-    /// A magnifying loupe onto the apps behind the window, dressed with the two opposed cues that
-    /// read as glass: a shadow on the near (top) inside edge, a specular on the far (bottom) one.
+    /// A magnifying, barrel-distorted loupe onto the content behind the window, framed by painted
+    /// glass cues (an inner shadow on the near edge, a specular on the far, a lit rim, a caustic).
     ///
-    /// The loupe is a real, live, WindowServer-rendered magnification (CAPortalLayer mirroring an
-    /// NSVisualEffectView backdrop, no Screen Recording permission). Where the private API is
-    /// unavailable, it falls back to a plain see-through hole and the painted cues still read.
+    /// The loupe self-animates its elastic iris + fade (see BackdropLoupeView); it is NOT scaled by
+    /// SwiftUI, because transforming its procedural backdrop re-samples at the end and snaps. The
+    /// painted cues scale/fade in SwiftUI alongside it. Where the private API is unavailable the
+    /// loupe is a plain see-through hole and the cues still read.
     private var hubGroup: some View {
         ZStack {
             if BackdropLoupeView.isSupported {
-                // The view self-masks to a circle (and needs margin overflow for the rim
-                // displacement), so no SwiftUI clipShape here.
-                BackdropLoupe(magnification: 1.5, lensDistortion: 0.42)
+                BackdropLoupe(magnification: 1.6, lensDistortion: 0.45, revealed: model.isVisible)
             } else {
                 Circle().fill(.white.opacity(0.03))
+                    .scaleEffect(model.isVisible ? 1.0 : hiddenHubScale)
+                    .opacity(model.isVisible ? 1.0 : 0.0)
+                    .animation(model.isVisible ? lensBloom : dismiss, value: model.isVisible)
             }
+
+            hubGlass
+        }
+        .frame(width: hubSize, height: hubSize)
+    }
+
+    /// The glass dressing over the loupe: caustic sheen, opposed edge cues, lit rim.
+    /// Scales and fades with its own elastic spring, timed to match the loupe's iris.
+    private var hubGlass: some View {
+        ZStack {
+            // Caustic: a soft off-centre highlight, like light pooling inside glass.
+            Circle()
+                .fill(RadialGradient(colors: [.white.opacity(0.22), .clear],
+                                     center: UnitPoint(x: 0.34, y: 0.26),
+                                     startRadius: 0, endRadius: hubSize * 0.55))
+                .blendMode(.plusLighter)
 
             Circle()
                 .stroke(.black.opacity(0.32), lineWidth: 6)
@@ -173,18 +191,17 @@ struct RadialMenuView: View {
                 .mask(Circle())
 
             Circle()
-                .stroke(.white.opacity(0.28), lineWidth: 3)
-                .blur(radius: 3)
+                .stroke(.white.opacity(0.3), lineWidth: 3)
+                .blur(radius: 2.5)
                 .offset(y: 4)
                 .mask(Circle())
 
             Circle().strokeBorder(.black.opacity(0.22), lineWidth: 1)
             Circle().strokeBorder(
-                LinearGradient(colors: [.white.opacity(0.45), .white.opacity(0.04)],
+                LinearGradient(colors: [.white.opacity(0.5), .white.opacity(0.04)],
                                startPoint: .topLeading, endPoint: .bottomTrailing),
-                lineWidth: 1)
+                lineWidth: 1.2)
         }
-        .frame(width: hubSize, height: hubSize)
         .scaleEffect(model.isVisible ? 1.0 : hiddenHubScale)
         .opacity(model.isVisible ? 1.0 : 0.0)
         .animation(model.isVisible ? lensBloom : dismiss, value: model.isVisible)

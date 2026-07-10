@@ -45,12 +45,54 @@ final class BackdropLoupeView: NSView {
     /// Capture margin (fraction of radius) so rim displacement samples real content, not transparency.
     private var marginFactor: CGFloat { distortionActive ? 0.4 : 0 }
 
+    private var revealed = false
+
     override init(frame: NSRect) {
         super.init(frame: frame)
         wantsLayer = true
         layer?.masksToBounds = false
+        layer?.opacity = 0                 // the reveal animation fades and irises it in
         aperture.fillColor = NSColor.black.cgColor
         layer?.mask = aperture
+    }
+
+    /// Iris the lens open (elastic mask scale + fade) instead of transforming the backdrop, which
+    /// re-samples at the end of a transform and looks like a snap. The magnified content stays put;
+    /// the circular window grows. Reused across the transient panel's show/hide cycles.
+    func setRevealed(_ shown: Bool) {
+        guard shown != revealed else { return }
+        revealed = shown
+        guard let host = layer else { return }
+        host.removeAnimation(forKey: "fade")
+        aperture.removeAnimation(forKey: "iris")
+
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = host.presentation()?.opacity ?? host.opacity
+
+        if shown {
+            fade.toValue = 1
+            fade.duration = 0.26
+            fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            host.opacity = 1
+            host.add(fade, forKey: "fade")
+
+            let iris = CASpringAnimation(keyPath: "transform.scale")
+            iris.fromValue = 0.35
+            iris.toValue = 1
+            iris.damping = 13
+            iris.stiffness = 170
+            iris.mass = 1
+            iris.initialVelocity = 3
+            iris.duration = iris.settlingDuration
+            aperture.transform = CATransform3DIdentity
+            aperture.add(iris, forKey: "iris")
+        } else {
+            fade.toValue = 0
+            fade.duration = 0.13
+            fade.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            host.opacity = 0
+            host.add(fade, forKey: "fade")
+        }
     }
 
     @available(*, unavailable)
@@ -192,6 +234,8 @@ final class BackdropLoupeView: NSView {
 struct BackdropLoupe: NSViewRepresentable {
     var magnification: CGFloat = 1.5
     var lensDistortion: CGFloat = 0.42
+    /// Drives the elastic iris + fade; the loupe self-animates rather than being scaled by SwiftUI.
+    var revealed: Bool = false
 
     func makeNSView(context: Context) -> BackdropLoupeView {
         BackdropLoupeView(frame: .zero)
@@ -200,5 +244,6 @@ struct BackdropLoupe: NSViewRepresentable {
     func updateNSView(_ view: BackdropLoupeView, context: Context) {
         view.magnification = magnification
         view.lensDistortion = lensDistortion
+        view.setRevealed(revealed)
     }
 }

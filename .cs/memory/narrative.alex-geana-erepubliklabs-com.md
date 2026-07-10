@@ -579,3 +579,35 @@ lensDistortion 0.42. Builds, runs.
 
 BLOCKED on Alex: does the hub now magnify AND bow at the edges in the real app. lensDistortion is a
 one-number dial. If yes, the lens is finally, fully done.
+
+
+## 2026-07-10 (cont.): fixed lens entry snap; iris reveal + caustic; rings sequenced
+
+Alex: barrel "okish not great, make it sexier"; and "the magnifier zone has another step at the
+end of the entry animation that looks like a snap"; wants fade+scale with elasticity for the lens,
+then the rings appear.
+
+Root cause of the snap: `hubGroup`'s SwiftUI `.scaleEffect` was transforming the hosted loupe's
+layer. A CABackdropLayer is procedural and re-samples at the END of a transform, so it cannot scale
+smoothly, it pops to final magnification when the spring settles = the step Alex saw.
+
+Fix: the loupe no longer scales. It IRISES open, a CASpringAnimation grows the CAShapeLayer mask
+0.35 to 1.0 with elastic overshoot while the magnified content stays fixed underneath, plus a 0.26s
+opacity fade. Nothing transforms the backdrop, nothing re-samples. Dismiss = 0.13s fade, no
+reverse-iris. Implemented as `BackdropLoupeView.setRevealed(_:)`, driven by a new `revealed` param
+on the BackdropLoupe representable (= model.isVisible). Two animation systems on purpose: Core
+Animation drives the procedural loupe (mask), SwiftUI drives the vector cues and ring. Forcing both
+through SwiftUI is what created the snap.
+
+Sexier: magnification 1.5->1.6, barrel 0.42->0.45, added a caustic sheen (soft off-centre white
+RadialGradient, plusLighter blend), brighter/thicker lit rim. Painted glass cues split into
+`hubGlass`, scale+fade with their own elastic spring (lensBloom, damping 0.58) timed to the iris.
+
+Sequenced: lens first (0 delay), then ring unfurls after (ringDelay 0.10->0.16, labelDelay
+0.17->0.24), ring spring a touch bouncier (bloom damping 0.62->0.6).
+
+All values are single dials: magnification 1.6, lensDistortion 0.45, iris damping 13/stiffness 170,
+ringDelay 0.16. Builds, runs (pid 14955). Barrel mechanism itself is Fable-verified; this change is
+animation/visual only.
+
+BLOCKED on Alex: is the snap gone (smooth elastic iris then ring), and is it sexier now.
