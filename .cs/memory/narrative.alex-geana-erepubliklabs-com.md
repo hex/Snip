@@ -657,3 +657,25 @@ Read "app ignore stuff" as the deferred per-app exclusion list (spec risk 10). B
 Builds, runs (pid 28032). BLOCKED on Alex: (a) does the ring now appear over iTerm fullscreen;
 (b) add an app in Settings and confirm the middle button passes through there while still working
 elsewhere. Also: confirm "app ignore stuff" == the exclusion list (my interpretation).
+
+
+## 2026-07-10 (cont.): fullscreen still broken (Spaces, not level); app-picker UI
+
+Shielding-level build still did not show over iTerm fullscreen. Gathered evidence
+(CGWindowListCopyWindowInfo): iTerm2 window is at layer=25 (NORMAL level), full-screen size ->
+iTerm uses NATIVE fullscreen (its own Space), not traditional high-level fullscreen. Our panel at
+CGShieldingWindowLevel (2147483628) is far above iTerm's 25, so LEVEL IS NOT THE PROBLEM. CleanShot
+X sits at shielding level and DOES show over fullscreen, proving it is achievable here. Root cause:
+the panel is not joining iTerm's native-fullscreen Space. Suspects: `.fullScreenAuxiliary` combined
+with `.canJoinAllSpaces`, or the offscreen prewarm sticky-assigning the panel to the default Space.
+Reasoning about Spaces has failed repeatedly, so dispatched Fable (BACKGROUND, agentId internal) to
+MEASURE which collectionBehavior/prewarm handling actually lands on a native-fullscreen Space,
+editing OverlayPanel.swift/OverlayPanelController.swift. Do not touch those files while it runs.
+
+Meanwhile built the app-picker UX Alex asked for (screenshot of Mos): SettingsView "Add
+Application" is now a Menu with a "Running Applications" submenu (NSWorkspace.runningApplications,
+.regular only, with icons, minus self and already-ignored, sorted) plus "Manually Select From
+Finder…" (the NSOpenPanel). Ignored rows show the app icon. Builds, runs (pid 19934).
+
+BLOCKED on Alex for the picker: open Settings, does the Running Applications submenu list apps with
+icons and add them. Fullscreen fix pending Fable.

@@ -4,6 +4,13 @@ import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
 
+/// A pickable running app for the suppress list.
+private struct RunningApp: Identifiable {
+    let id: String   // bundle identifier
+    let name: String
+    let icon: NSImage
+}
+
 struct SettingsView: View {
     @Bindable var model: AppModel
     var onConfigChanged: () -> Void
@@ -25,6 +32,8 @@ struct SettingsView: View {
                 } else {
                     ForEach(model.ignoredApps) { app in
                         HStack {
+                            Image(nsImage: icon(forBundleID: app.bundleID))
+                                .resizable().frame(width: 18, height: 18)
                             Text(app.name)
                             Spacer()
                             Button {
@@ -36,15 +45,56 @@ struct SettingsView: View {
                         }
                     }
                 }
-                Button("Add Application…", action: addApplication)
+
+                addMenu
             }
         }
         .formStyle(.grouped)
-        .frame(width: 460, height: 380)
+        .frame(width: 460, height: 400)
         .onChange(of: model.triggerConfig) { _, _ in onConfigChanged() }
     }
 
-    private func addApplication() {
+    private var addMenu: some View {
+        Menu {
+            Menu("Running Applications") {
+                ForEach(runningApps) { app in
+                    Button {
+                        add(bundleID: app.id, name: app.name)
+                    } label: {
+                        Label { Text(app.name) } icon: { Image(nsImage: app.icon) }
+                    }
+                }
+            }
+            Button("Manually Select From Finder…", action: addFromFinder)
+        } label: {
+            Label("Add Application", systemImage: "plus")
+        }
+        .menuStyle(.button)
+        .fixedSize()
+    }
+
+    /// Regular (Dock-showing) apps, minus Snip itself and ones already suppressed.
+    private var runningApps: [RunningApp] {
+        let existing = model.ignoredBundleIDs
+        let selfID = Bundle.main.bundleIdentifier
+        return NSWorkspace.shared.runningApplications
+            .compactMap { app -> RunningApp? in
+                guard app.activationPolicy == .regular,
+                      let id = app.bundleIdentifier, id != selfID, !existing.contains(id),
+                      let name = app.localizedName, let icon = app.icon else { return nil }
+                return RunningApp(id: id, name: name, icon: icon)
+            }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    private func icon(forBundleID id: String) -> NSImage {
+        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: id) {
+            return NSWorkspace.shared.icon(forFile: url.path)
+        }
+        return NSImage(systemSymbolName: "app.dashed", accessibilityDescription: nil) ?? NSImage()
+    }
+
+    private func addFromFinder() {
         let panel = NSOpenPanel()
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
         panel.allowedContentTypes = [.application]
@@ -53,9 +103,13 @@ struct SettingsView: View {
         panel.prompt = "Suppress"
         guard panel.runModal() == .OK, let url = panel.url,
               let bundleID = Bundle(url: url)?.bundleIdentifier else { return }
-        guard !model.ignoredApps.contains(where: { $0.bundleID == bundleID }) else { return }
         let name = FileManager.default.displayName(atPath: url.path)
             .replacingOccurrences(of: ".app", with: "")
+        add(bundleID: bundleID, name: name)
+    }
+
+    private func add(bundleID: String, name: String) {
+        guard !model.ignoredApps.contains(where: { $0.bundleID == bundleID }) else { return }
         model.ignoredApps.append(IgnoredApp(bundleID: bundleID, name: name))
         onConfigChanged()
     }
