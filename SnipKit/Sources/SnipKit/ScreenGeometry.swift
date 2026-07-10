@@ -1,5 +1,5 @@
 // ABOUTME: Pure conversions between Quartz (top-left) event coords and Cocoa (bottom-left) window coords.
-// ABOUTME: Also clamps the ring's origin so the whole overlay stays on-screen (notch/menu-bar safe).
+// ABOUTME: Also places the overlay canvas, which is always centered on the cursor, never clamped.
 import CoreGraphics
 
 public enum ScreenGeometry {
@@ -7,11 +7,12 @@ public enum ScreenGeometry {
         CGPoint(x: p.x, y: primaryScreenHeight - p.y)
     }
 
-    public static func clampedOrigin(forRingSize size: CGFloat, center: CGPoint, in visibleFrame: CGRect) -> CGPoint {
-        var x = center.x - size / 2
-        var y = center.y - size / 2
-        x = min(max(x, visibleFrame.minX), visibleFrame.maxX - size)
-        y = min(max(y, visibleFrame.minY), visibleFrame.maxY - size)
-        return CGPoint(x: x, y: y)
+    /// The bottom-left origin of a `size` x `size` canvas centered on `center`.
+    ///
+    /// Deliberately unclamped. The wedge is chosen from the press anchor, so nudging the ring
+    /// back on screen would make the drawing and the geometry disagree: the user would drag
+    /// toward the wedge they can see and a different one would fire.
+    public static func centeredOrigin(forSize size: CGFloat, center: CGPoint) -> CGPoint {
+        CGPoint(x: center.x - size / 2, y: center.y - size / 2)
     }
 }
