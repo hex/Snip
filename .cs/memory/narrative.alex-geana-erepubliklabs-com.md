@@ -693,3 +693,23 @@ tooltips on rows. Committed e9ad5e4. If Alex wants the true CleanShot toolbar-wi
 Fable (background) still investigating the fullscreen-over-native-fullscreen Spaces fix in
 OverlayPanel.swift/OverlayPanelController.swift. Awaiting completion notification; apply its diff
 then. Do not edit those two files meanwhile.
+
+
+## 2026-07-10 (cont.): fixed latent build breakage; Fable fullscreen waiting on unlock
+
+Fable's background fullscreen agent stopped INCOMPLETE: the Mac is password-locked (loginwindow
+over both displays), so WindowServer measurements are meaningless. It armed two background OS
+processes: a matrix runner that, on unlock, measures 7 panel configs (shipped, noprewarm, joinonly,
+joinstat, auxstat, reassert, movetoactive) against a native-fullscreen Space and writes verdicts to
+scratchpad/matrix_result.txt, plus an unlock notifier. NEXT: when Alex unlocks, read
+scratchpad/matrix_result.txt (or resume Fable agent a84c8b10a54ab62a5 via SendMessage) to get the
+winning config, then apply the diff to OverlayPanel/OverlayPanelController and rebuild. Fable did
+NOT edit repo files; its work is all in scratchpad probes.
+
+**Latent build breakage found and fixed (my bug):** the cursor-centering fix renamed
+ScreenGeometry.clampedOrigin -> centeredOrigin and updated OverlayPanelController to call it, but I
+committed with a scoped `git add Snip/ .cs/` that missed SnipKit/. For ~15 commits the committed
+tree referenced centeredOrigin from a ScreenGeometry that only had clampedOrigin -> clean checkout
+would not compile. Working tree built fine because it had the change. Committed the stranded
+ScreenGeometry + tests (3df4a64), 25 tests green, tree now consistent and clean. Saved durable
+feedback memory verify-git-status-after-scoped-add.md.

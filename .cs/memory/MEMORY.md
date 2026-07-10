@@ -1,3 +1,4 @@
 - [Session narrative — alex-geana-erepubliklabs-com (lab notebook)](narrative.alex-geana-erepubliklabs-com.md): looser-bar work-in-progress; read all narrative.*.md on resume
 - ["Snip" comes from Snippets](snip-name-means-snippets.md): no scissors/cutting metaphors — the app inserts text, never cuts
 - [Overlay loupe via backdrop zoom](overlay-loupe-via-backdrop-zoom.md): live magnify of content behind a transparent overlay window via a private CABackdropLayer capture group (negative zoom); CAPortalLayer does NOT magnify
+- [Verify git status after a scoped add](verify-git-status-after-scoped-add.md): a scoped `git add <paths>` can strand a sibling-dir change and break the committed tree
