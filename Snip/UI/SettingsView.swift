@@ -1,5 +1,5 @@
 // ABOUTME: SwiftUI settings for how the radial menu is triggered and where it is suppressed.
-// ABOUTME: Changes persist through AppModel and restart the event tap via onConfigChanged.
+// ABOUTME: Tabbed (Trigger / Exceptions); changes persist through AppModel and restart the tap.
 import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
@@ -16,22 +16,45 @@ struct SettingsView: View {
     var onConfigChanged: () -> Void
 
     var body: some View {
+        TabView {
+            triggerTab
+                .tabItem { Label("Trigger", systemImage: "cursorarrow.click") }
+            exceptionsTab
+                .tabItem { Label("Exceptions", systemImage: "hand.raised") }
+        }
+        .frame(width: 480, height: 340)
+        .onChange(of: model.triggerConfig) { _, _ in onConfigChanged() }
+    }
+
+    // MARK: - Trigger
+
+    private var triggerTab: some View {
         Form {
-            Section("Trigger") {
+            Section {
                 Toggle("Hold the middle mouse button", isOn: $model.triggerConfig.middleMouseEnabled)
-                Text("While held, the ring opens under your cursor. Drag to a wedge and release to insert. Release in the middle to cancel.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            } footer: {
+                Text("While held, the ring opens under your cursor. Drag to a wedge and release to insert; release in the middle to cancel.")
             }
 
-            Section("Suppress in these apps") {
+            Section("Keyboard fallback") {
+                Text("A configurable key chord arrives with the search palette, for trackpad users with no middle button.")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    // MARK: - Exceptions
+
+    private var exceptionsTab: some View {
+        Form {
+            Section {
                 if model.ignoredApps.isEmpty {
-                    Text("Snip captures the middle button everywhere. Add apps here to let it through — for apps where middle-click means something (Blender orbit, a browser's new tab).")
-                        .font(.caption)
+                    Text("Snip captures the middle button everywhere. Add apps to let it through — where middle-click already means something (Blender orbit, a browser's new tab).")
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(model.ignoredApps) { app in
-                        HStack {
+                        HStack(spacing: 8) {
                             Image(nsImage: icon(forBundleID: app.bundleID))
                                 .resizable().frame(width: 18, height: 18)
                             Text(app.name)
@@ -42,16 +65,16 @@ struct SettingsView: View {
                                 Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
                             }
                             .buttonStyle(.plain)
+                            .help("Remove")
                         }
                     }
                 }
-
                 addMenu
+            } header: {
+                Text("Suppress the trigger in these apps")
             }
         }
         .formStyle(.grouped)
-        .frame(width: 460, height: 400)
-        .onChange(of: model.triggerConfig) { _, _ in onConfigChanged() }
     }
 
     private var addMenu: some View {
@@ -72,6 +95,8 @@ struct SettingsView: View {
         .menuStyle(.button)
         .fixedSize()
     }
+
+    // MARK: - Data
 
     /// Regular (Dock-showing) apps, minus Snip itself and ones already suppressed.
     private var runningApps: [RunningApp] {
