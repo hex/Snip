@@ -713,3 +713,24 @@ tree referenced centeredOrigin from a ScreenGeometry that only had clampedOrigin
 would not compile. Working tree built fine because it had the change. Committed the stranded
 ScreenGeometry + tests (3df4a64), 25 tests green, tree now consistent and clean. Saved durable
 feedback memory verify-git-status-after-scoped-add.md.
+
+
+## 2026-07-10 (cont.): applied Fable's #1 fullscreen hypothesis (reassert), UNVERIFIED
+
+Fable ran out its 2+ hour window with the Mac locked the whole time; it verified WindowServer
+refuses window capture behind the login shield (loginwindow at layers 2001-2004, all app windows
+onscreen=false), so it produced NO measured verdict, correctly refusing to fabricate one. It left
+a validated one-command harness: scratchpad/measure.sh (refuses while locked, auto-spawns an
+fsvictim native-fullscreen window if none, runs space_probe across 7 configs, prints a verdict
+table + sp_<config>.png proof shots). Ranked UNVERIFIED hypotheses: ~55% offscreen prewarm
+sticky-assigns the panel to the desktop Space (fix: reassert collectionBehavior at show time,
+keeps prewarm); ~25% .fullScreenAuxiliary vs .canJoinAllSpaces conflict (drop fullScreenAuxiliary);
+~15% needs behavior re-set every show; ~5% moveToActiveSpace.
+
+Applied hypothesis #1 (low-risk, idempotent): OverlayPanel gains `reassertSpaceMembership()` which
+re-sets `[.canJoinAllSpaces,.fullScreenAuxiliary,.stationary,.ignoresCycle]`, called in
+OverlayPanelController.show() right before orderFrontRegardless. Builds, runs (pid 50016).
+NOT verified (Mac locked). Alex's own test (hold middle-mouse over iTerm native fullscreen) is the
+verification; if it fails, run scratchpad/measure.sh for the definitive winner and apply that
+config. Level fix (CGShieldingWindowLevel) stays but evidence showed level was never the issue
+(iTerm at layer 25); it is harmless.

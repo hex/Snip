@@ -13,6 +13,18 @@ final class OverlayPanel: NSPanel {
     override var canBecomeKey: Bool { keyboardMode }
     override var canBecomeMain: Bool { false }
 
+    /// Includes .canJoinAllSpaces so the panel can cross into another app's fullscreen Space
+    /// (the menu-bar / Spotlight behaviour).
+    private static let overlayCollectionBehavior: NSWindow.CollectionBehavior =
+        [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+
+    /// Re-set at show time so the WindowServer re-evaluates Space membership. The offscreen prewarm
+    /// (orderFront + orderOut at launch) sticky-assigns the panel to the desktop Space; without this
+    /// a later orderFront re-shows it there instead of migrating to the active fullscreen Space.
+    func reassertSpaceMembership() {
+        collectionBehavior = Self.overlayCollectionBehavior
+    }
+
     /// AppKit nudges windows back on screen by default. The ring must stay centered on the
     /// cursor even at a screen edge, or the drawn wedges stop matching the drag geometry.
     override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
@@ -28,7 +40,7 @@ final class OverlayPanel: NSPanel {
         // their own window to a high level to cover the menu bar (e.g. iTerm). .screenSaver was
         // not enough. .canJoinAllSpaces still covers native fullscreen (its own Space).
         level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()))
-        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+        collectionBehavior = Self.overlayCollectionBehavior
         isFloatingPanel = true
         hidesOnDeactivate = false
         isOpaque = false
