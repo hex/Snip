@@ -36,7 +36,19 @@ Implemented in `Snip/Overlay/BackdropLoupeView.swift`.
 - Native `CABackdropLayer.zoom` on the WINDOW's own backdrop only zooms OUT; you need your own
   capture group with a negative zoom to zoom IN.
 
-Gate on `isSupported` (CABackdropLayer present); painted lens is the fallback. `zoom` semantics are
-private and were measured on a 2x display; sanity-check 1x displays if supported.
+**Edge / barrel distortion (physical-lens rim):** a native **`displacementMap` `CAFilter`** on
+the consumer. CAFilter responds to `-inputKeys` (use it; never setValue a key not listed, the
+NSException is uncatchable in Swift). Keys: `inputMaskImage` (RGBA CGImage: R,G = signed radial
+vector, 0.5 neutral, growing r^2 outward, B=255 A=255), `inputAmount` (ABSOLUTE POINTS, scale with
+radius), `inputOffset` = `NSValue(point:(0.5,0.5))` set explicitly. Requires a CAPTURE MARGIN:
+size provider+consumer ~0.4*radius larger than the visible circle and clip with a CAShapeLayer
+aperture, else the rim samples transparency. Filters stack. glassBackground/Foreground need a
+private height-field sublayer (`inputSourceSublayerName`) and make the disc vanish otherwise;
+chromatic aberration reads as a global glitch. `CAFilter.filterTypes` is the 43 real native types;
+CIFilters never run server-side.
+
+Gate on `isSupported` (CABackdropLayer present) and a separate distortion gate (CAFilter
+displacementMap + expected inputKeys); painted lens is the fallback. `zoom`/displacement semantics
+are private and were measured on a 2x display; sanity-check 1x displays if supported.
 
 See [[narrative.alex-geana-erepubliklabs-com]] for the trail, including two retracted lens claims.

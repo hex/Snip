@@ -159,8 +159,9 @@ struct RadialMenuView: View {
     private var hubGroup: some View {
         ZStack {
             if BackdropLoupeView.isSupported {
-                BackdropLoupe(magnification: 1.5)
-                    .clipShape(Circle())
+                // The view self-masks to a circle (and needs margin overflow for the rim
+                // displacement), so no SwiftUI clipShape here.
+                BackdropLoupe(magnification: 1.5, lensDistortion: 0.42)
             } else {
                 Circle().fill(.white.opacity(0.03))
             }

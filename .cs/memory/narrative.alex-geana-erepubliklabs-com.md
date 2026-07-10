@@ -546,3 +546,36 @@ reasoned to a plausible-but-wrong recipe and called it verified; Fable-2 measure
 
 BLOCKED on Alex: does the hub visibly magnify now (~1.5x, sharp), and is the ring frost normal
 (the harmful sharpen is gone). If yes, the lens is finally done.
+
+
+## 2026-07-10: barrel/edge lens distortion added (displacementMap CAFilter)
+
+Alex: "zoom works, can we have some distortion on the edges." Probed CAFilter myself first:
+`CAFilter.filterTypes` has 43 native types (glassBackground/Foreground, chromaticAberration(+Map),
+displacementMap, pageCurl, lanczosResize, ...); `bump`/`zoom`/`refraction` are NOT real types.
+CAFilter input keys are KVC-dynamic, not in the property list, so I could not discover usage
+locally, and I cannot screenshot the live overlay myself (needs a middle-mouse hold). Dispatched
+Fable (agentId ae7d8fd0c1c7dd884).
+
+Fable's unlock: **`CAFilter` responds to `-inputKeys`**, a real method, so no blind sweeping.
+Winner = a native **`displacementMap`** CAFilter on the negative-zoom consumer:
+- inputKeys: `inputMaskImage, inputOffset, inputAmount, inputSourceSublayerName`.
+- Displacement map = RGBA CGImage; R,G encode a signed radial vector, 0.5 = neutral, growing
+  QUADRATICALLY (r^2) outward toward the rim; **B=255, A=255** (B=128 washes to 50% alpha).
+- `inputOffset = NSValue(point:(0.5,0.5))` set EXPLICITLY (scalar default 0.5 does not zero both axes).
+- `inputAmount` is in ABSOLUTE POINTS, so scale with radius: `amount = lensDistortion * radius`,
+  lensDistortion ~0.30 subtle to 0.45 pronounced, 0.42 default.
+- **Capture margin required:** barrel samples OUTWARD at the rim, so provider+consumer must be
+  LARGER than the visible circle (margin = 0.4*radius) and clipped by a CAShapeLayer aperture
+  (not masksToBounds), else the rim refracts transparency.
+- Filters stack; glassBackground/Foreground were rejected (need a private inputSourceSublayerName
+  height-field; the disc vanished). Chromatic aberration read as a global glitch, dropped.
+
+I VERIFIED Fable's `swift_barrel.png` myself: the grid inside the circle is magnified AND bows
+outward at the rim = real barrel lens. Folded the verified class into BackdropLoupeView.swift
+(added `lensDistortion`, `distortionSupported` gate, aperture mask, barrelMap, displacementFilter).
+Degrades to the flat loupe if the filter/keys are unavailable. Wired at magnification 1.5,
+lensDistortion 0.42. Builds, runs.
+
+BLOCKED on Alex: does the hub now magnify AND bow at the edges in the real app. lensDistortion is a
+one-number dial. If yes, the lens is finally, fully done.
