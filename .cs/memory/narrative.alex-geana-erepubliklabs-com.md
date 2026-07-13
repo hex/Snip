@@ -850,3 +850,13 @@ HYPOTHESIS, not verified. Risk: same-value collectionBehavior re-set could be a 
 and relaunch Snip, go straight to iTerm native fullscreen, trigger on first attempt without priming
 elsewhere. If it still intermittently fails, escalate to Fable to measure (may need orderOut+
 orderFront toggle, or a real onscreen prewarm to register all-Spaces membership).
+
+
+## 2026-07-13 (cont.): reassert-on-show VERIFIED for first-show-on-fullscreen
+
+Alex relaunched Snip fresh (I did the relaunch, pid 8881), went straight to iTerm native fullscreen,
+triggered on the first attempt without priming elsewhere: "it appeared." So the stale-prewarm
+hypothesis was right and reassertSpaceMembership() (re-set collectionBehavior in show()) fixes the
+first-show-on-fullscreen migration. Same-value re-set is NOT a no-op for collectionBehavior; it
+re-registers with the WindowServer. The bug was originally described as intermittent, so if it ever
+recurs, revisit; but the repro'd failure mode is now fixed and confirmed. Commit 1dd0211.
