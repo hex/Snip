@@ -1026,3 +1026,15 @@ Removed the RingDrag enum. glassRing doesn't depend on drag state so SwiftUI ski
 re-compositing the vibrancy each tick.
 (2) Lightened the heavy near-black TEXT slab: new HUD.field (#191D25) instead of
 socket, and capped height 160-320 so it stops filling the whole pane.
+
+## 2026-07-13: Fix phantom "Untitled" from tapping an empty wedge
+
+Bug (Alex): tapping an empty slot saved it as Untitled. Cause: onAddToSlot ->
+createSnippet persists an empty Snippet(label:"",body:"") immediately, so tapping
+and walking away left a blank pinned snippet. The editor edits snippets[index] by
+index, so the draft must exist to be editable (can't defer creation). Fix:
+purgeEmptyDrafts() in LibraryView removes snippets with empty label AND body except
+the current selection, run on .onChange(of: selection) and .onAppear. The actively
+edited draft (== selection) is kept; abandoned ones are dropped when you move on or
+reopen. Verified functionally via scripted clicks: tap empty wedge -> 4->5 (draft
+created); select DATE -> 5->4 (purged). Loadout intact.

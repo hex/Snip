@@ -23,8 +23,19 @@ struct LibraryView: View {
         }
         .frame(minWidth: 780, minHeight: 520)
         .preferredColorScheme(.dark)
-        .onAppear { consumePendingEdit() }
+        .onAppear { consumePendingEdit(); purgeEmptyDrafts() }
         .onChange(of: model.pendingEditSnippetID) { _, _ in consumePendingEdit() }
+        .onChange(of: selection) { _, _ in purgeEmptyDrafts() }
+    }
+
+    /// Tapping an empty wedge creates a blank draft to edit. If it's left with no label and no body,
+    /// drop it when the user moves on, so no phantom "Untitled" is saved. The snippet currently being
+    /// edited (the selection) is always kept.
+    private func purgeEmptyDrafts() {
+        let keep = selection
+        let before = model.library.snippets.count
+        model.library.snippets.removeAll { $0.id != keep && $0.label.isEmpty && $0.body.isEmpty }
+        if model.library.snippets.count != before { model.save() }
     }
 
     // MARK: - Detail (editor)
