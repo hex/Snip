@@ -1,5 +1,5 @@
 // ABOUTME: SwiftUI window to create, edit, delete snippets and pin them to ring slots 0 through 7.
-// ABOUTME: Mutations write through AppModel and persist immediately.
+// ABOUTME: Native source-list (list + bottom +/- bar) and an editor; mutations persist immediately.
 import SwiftUI
 import SnipKit
 
@@ -15,7 +15,19 @@ struct LibraryView: View {
     ]
 
     var body: some View {
-        NavigationSplitView {
+        HSplitView {
+            sidebar
+            detail
+        }
+        .frame(minWidth: 680, minHeight: 440)
+        .onAppear { consumePendingEdit() }
+        .onChange(of: model.pendingEditSnippetID) { _, _ in consumePendingEdit() }
+    }
+
+    // MARK: - Sidebar (source list + bottom add/remove bar)
+
+    private var sidebar: some View {
+        VStack(spacing: 0) {
             List(selection: $selection) {
                 ForEach(model.library.snippets) { snippet in
                     VStack(alignment: .leading, spacing: 2) {
@@ -28,33 +40,41 @@ struct LibraryView: View {
                     .tag(snippet.id)
                 }
             }
-            .navigationSplitViewColumnWidth(min: 200, ideal: 220)
-            .toolbar {
+
+            Divider()
+
+            HStack(spacing: 0) {
                 Button(action: addSnippet) {
-                    Label("New snippet", systemImage: "plus")
+                    Image(systemName: "plus").frame(width: 24, height: 20)
                 }
+                .help("New snippet")
+
+                Button(action: deleteSelected) {
+                    Image(systemName: "minus").frame(width: 24, height: 20)
+                }
+                .disabled(selection == nil)
+                .help("Delete selected snippet")
+
+                Spacer()
             }
-        } detail: {
-            if let index = selectedIndex {
-                editor(for: index)
-            } else {
-                ContentUnavailableView("No snippet selected",
-                                       systemImage: "text.insert",
-                                       description: Text("Pick one on the left, or add a new snippet."))
-            }
+            .buttonStyle(.borderless)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 4)
         }
-        .frame(minWidth: 680, minHeight: 440)
-        .onAppear { consumePendingEdit() }
-        .onChange(of: model.pendingEditSnippetID) { _, _ in consumePendingEdit() }
+        .frame(minWidth: 200, idealWidth: 220, maxWidth: 320)
     }
 
-    /// Firing an empty wedge creates a snippet and asks the library to jump straight to editing it.
-    private func consumePendingEdit() {
-        guard let id = model.pendingEditSnippetID else { return }
-        selection = id
-        model.pendingEditSnippetID = nil
-        // After the editor renders for the new selection, drop the caret into the label.
-        DispatchQueue.main.async { labelFocused = true }
+    // MARK: - Detail (editor)
+
+    @ViewBuilder private var detail: some View {
+        if let index = selectedIndex {
+            editor(for: index)
+        } else {
+            ContentUnavailableView("No snippet selected",
+                                   systemImage: "text.insert",
+                                   description: Text("Pick one on the left, or add a snippet with +."))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
     }
 
     private var selectedIndex: Int? {
@@ -87,13 +107,21 @@ struct LibraryView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-
-            Section {
-                Button("Delete snippet", role: .destructive) { deleteSnippet(index) }
-            }
         }
         .formStyle(.grouped)
+        .frame(minWidth: 420)
         .onChange(of: model.library) { _, _ in model.save() }
+    }
+
+    // MARK: - Actions
+
+    /// Firing an empty wedge creates a snippet and asks the library to jump straight to editing it.
+    private func consumePendingEdit() {
+        guard let id = model.pendingEditSnippetID else { return }
+        selection = id
+        model.pendingEditSnippetID = nil
+        // After the editor renders for the new selection, drop the caret into the label.
+        DispatchQueue.main.async { labelFocused = true }
     }
 
     /// Maps the picker's Int tag to the optional slot, going through AppModel so the
@@ -109,11 +137,14 @@ struct LibraryView: View {
         model.library.snippets.append(snippet)
         selection = snippet.id
         model.save()
+        DispatchQueue.main.async { labelFocused = true }
     }
 
-    private func deleteSnippet(_ index: Int) {
-        let removed = model.library.snippets.remove(at: index)
-        if selection == removed.id { selection = nil }
+    private func deleteSelected() {
+        guard let id = selection,
+              let index = model.library.snippets.firstIndex(where: { $0.id == id }) else { return }
+        model.library.snippets.remove(at: index)
+        selection = nil
         model.save()
     }
 }

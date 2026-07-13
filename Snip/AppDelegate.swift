@@ -79,7 +79,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 720, height: 480),
                                   styleMask: [.titled, .closable, .miniaturizable, .resizable],
                                   backing: .buffered, defer: false)
-            window.title = "Snip Snippets"
+            window.title = "Snippets"
             window.contentView = NSHostingView(rootView: LibraryView(model: model))
             window.isReleasedWhenClosed = false
             window.center()
@@ -136,8 +136,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             paster.insert(snippet)
         } else {
             // Empty wedge: create a snippet for that position and jump straight to editing it.
-            model.pendingEditSnippetID = model.createSnippet(inSlot: index)
+            let id = model.createSnippet(inSlot: index)
             openLibrary()
+            // Hand off AFTER the window is key, next runloop tick, so the field focus actually lands.
+            DispatchQueue.main.async { self.model.pendingEditSnippetID = id }
         }
     }
 

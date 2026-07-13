@@ -805,3 +805,17 @@ the label field for immediate typing, instead of doing nothing.
 Builds, runs (pid 25585). Minor known edge: a created-but-unlabeled snippet shows a blank wedge (not
 "+"), since the slot is now occupied; acceptable, could fall back to a placeholder later.
 BLOCKED on Alex: fire an empty wedge, confirm the editor opens focused for typing.
+
+
+## 2026-07-13 (cont.): library window cleanup + focus-lands fix
+
+Alex showed the library title bar ("we need to fix this"): redundant title + janky toolbar.
+- Title "Snip Snippets" -> "Snippets" (Snip already means Snippets; it read as "Snippets Snippets").
+- Rewrote LibraryView from NavigationSplitView (which added an auto sidebar toggle + an orphaned
+  sidebar/detail toolbar divider when the detail had no toolbar items) to a native source-list:
+  HSplitView with a List + a bottom +/- bar, matching the Mos/CleanShot pattern Alex referenced.
+- Empty-wedge focus fix: fire() now calls openLibrary() FIRST, then hands off pendingEditSnippetID
+  on the next runloop tick, so the label @FocusState lands on a window that is already key (accessory
+  app: the window must be key before focus takes). addSnippet also focuses the label.
+Builds, runs (pid 78251). BLOCKED on Alex: library looks clean now, and firing an empty wedge opens
+the editor with the label focused for typing.
