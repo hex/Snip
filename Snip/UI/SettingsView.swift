@@ -2,6 +2,7 @@
 // ABOUTME: Tabbed (Trigger / Exceptions); changes persist through AppModel and restart the tap.
 import SwiftUI
 import AppKit
+import CoreGraphics
 import UniformTypeIdentifiers
 
 /// A pickable running app for the suppress list.
@@ -14,6 +15,9 @@ private struct RunningApp: Identifiable {
 struct SettingsView: View {
     @Bindable var model: AppModel
     var onConfigChanged: () -> Void
+
+    @State private var isRecordingShortcut = false
+    @State private var shortcutMonitor: Any?
 
     var body: some View {
         TabView {
@@ -36,12 +40,82 @@ struct SettingsView: View {
                 Text("While held, the ring opens under your cursor. Drag to a wedge and release to insert; release in the middle to cancel.")
             }
 
-            Section("Keyboard fallback") {
-                Text("A configurable key chord arrives with the search palette, for trackpad users with no middle button.")
-                    .foregroundStyle(.secondary)
+            Section {
+                Toggle("Hold a keyboard shortcut", isOn: $model.triggerConfig.hotkeyEnabled)
+                shortcutRecorderRow
+            } footer: {
+                Text("While held, the ring opens under your cursor. Drag the mouse to a wedge and release the shortcut to insert; release near the center to cancel.")
             }
         }
         .formStyle(.grouped)
+    }
+
+    private var shortcutRecorderRow: some View {
+        HStack {
+            Text("Shortcut")
+            Spacer()
+            Text(shortcutLabel)
+                .foregroundStyle(.secondary)
+            Button(isRecordingShortcut ? "Press a key…" : "Record") {
+                startRecordingShortcut()
+            }
+            .disabled(isRecordingShortcut)
+        }
+    }
+
+    private var shortcutLabel: String {
+        modifierSymbols(for: model.triggerConfig.hotkeyModifiers) + model.triggerConfig.hotkeyKeyLabel
+    }
+
+    private func modifierSymbols(for flags: CGEventFlags) -> String {
+        var symbols = ""
+        if flags.contains(.maskControl) { symbols += "⌃" }
+        if flags.contains(.maskAlternate) { symbols += "⌥" }
+        if flags.contains(.maskShift) { symbols += "⇧" }
+        if flags.contains(.maskCommand) { symbols += "⌘" }
+        return symbols
+    }
+
+    private func startRecordingShortcut() {
+        isRecordingShortcut = true
+        shortcutMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            recordShortcut(from: event)
+            return nil   // swallow the captured key so it doesn't type into Settings
+        }
+    }
+
+    private func recordShortcut(from event: NSEvent) {
+        if let shortcutMonitor { NSEvent.removeMonitor(shortcutMonitor) }
+        shortcutMonitor = nil
+        isRecordingShortcut = false
+
+        model.triggerConfig.hotkeyKeyCode = Int(event.keyCode)
+        model.triggerConfig.hotkeyModifierRawValue = cgEventFlags(from: event.modifierFlags).rawValue
+        model.triggerConfig.hotkeyKeyLabel = keyLabel(for: event.keyCode, characters: event.charactersIgnoringModifiers)
+    }
+
+    private func cgEventFlags(from modifiers: NSEvent.ModifierFlags) -> CGEventFlags {
+        var flags: CGEventFlags = []
+        if modifiers.contains(.command) { flags.insert(.maskCommand) }
+        if modifiers.contains(.option) { flags.insert(.maskAlternate) }
+        if modifiers.contains(.control) { flags.insert(.maskControl) }
+        if modifiers.contains(.shift) { flags.insert(.maskShift) }
+        return flags
+    }
+
+    private func keyLabel(for keyCode: UInt16, characters: String?) -> String {
+        switch keyCode {
+        case 49: return "Space"
+        case 36: return "Return"
+        case 48: return "Tab"
+        case 53: return "Escape"
+        case 51: return "Delete"
+        case 123: return "←"
+        case 124: return "→"
+        case 125: return "↓"
+        case 126: return "↑"
+        default: return characters?.uppercased() ?? "Key \(keyCode)"
+        }
     }
 
     // MARK: - Exceptions
