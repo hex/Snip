@@ -1053,3 +1053,18 @@ Assets.xcassets/Contents.json added, Info.plist CFBundleIconName=AppIcon. Source
 kept at snip-icon.png (project root). Verified: build embeds AppIcon.icns +
 Assets.car; extracted icns renders correctly. Note: Snip is LSUIElement (no dock
 icon) so the icon shows in Finder / About / System Settings, not the Dock.
+
+## 2026-07-13: Icon redo -> "Bloom" dark jewel (icon council)
+
+Alex rejected the frosted milky-white style (and a set of concept variants:
+caret/card/lightning/S/radial), wanting "sexy like macOS icons" and asked to
+check the council. Ran a 3-lens icon council (cohesive dark jewel / vibrant Big
+Sur glyph / tactile hero object). Generated 3 premium dimensional renders: Bloom
+(faceted obsidian-glass ring, one wedge lit electric-blue with a glowing caret
+inside), Beam (glossy 3D I-beam + coral flick-arc), Dial (machined knurled
+jog-wheel + teal glow). All three staged ONE lit wedge/element to avoid the
+camera/target read. Alex picked Bloom (depicts the app's gesture; cohesive with
+the dark HUD). Composited the full-bleed render into a proper macOS squircle via
+CoreGraphics (Snip/UI... no: a throwaway swift script): 824 content centered in
+1024, 100px transparent margin, 185 corner radius. Re-sliced the appiconset,
+rebuilt, icns verified. snip-icon.png is now the Bloom squircle.
