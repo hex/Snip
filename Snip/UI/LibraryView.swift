@@ -58,8 +58,6 @@ struct LibraryView: View {
     }
 
     @ViewBuilder private func editor(for index: Int) -> some View {
-        let snippet = model.library.snippets[index]
-
         VStack(alignment: .leading, spacing: 24) {
             VStack(alignment: .leading, spacing: 7) {
                 TextField("Label", text: $model.library.snippets[index].label)
@@ -72,11 +70,6 @@ struct LibraryView: View {
                     .fill(labelFocused ? HUD.signal : HUD.hairline)
                     .frame(height: 1)
                     .animation(.easeOut(duration: 0.15), value: labelFocused)
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                fieldLabel("BEARING")
-                RingPositionPicker(slot: slotBinding(for: snippet.id))
             }
 
             VStack(alignment: .leading, spacing: 8) {
@@ -137,13 +130,6 @@ struct LibraryView: View {
         model.pendingEditSnippetID = nil
         // After the editor renders for the new selection, drop the caret into the label.
         DispatchQueue.main.async { labelFocused = true }
-    }
-
-    /// Bridges the mini-ring picker to AppModel so the one-snippet-per-slot rule stays in one place.
-    private func slotBinding(for id: Snippet.ID) -> Binding<Int?> {
-        Binding(
-            get: { model.library.snippets.first { $0.id == id }?.slot },
-            set: { model.setSlot($0, for: id) })
     }
 
     /// Adds a snippet already pinned to an empty ring slot, then jumps to editing it.

@@ -1001,3 +1001,14 @@ polluted the real store with ~10 junk untitled snippets (empty-wedge taps create
 Cleaned via jq (drop empty label+body) and restored the loadout
 SIG@0/Fable@1/HI@5/DATE unpinned. Next time: capture unselected only, or click a
 known filled element; never guess onto empty wedges.
+
+## 2026-07-13: Removed redundant BEARING picker
+
+Alex: the mini-ring BEARING picker in the editor is bad/redundant, you set position
+by moving the radial items in place. Right. Deleted RingPositionPicker.swift and the
+BEARING section; editor is now just Label + Text + token chips. Position is set
+entirely on the main ring (drag a wedge onto another = move/swap; drag to tray =
+unpin; drag a tray chip onto a wedge = pin). Also removed
+isMovableByWindowBackground: it let background clicks drag the window and risked
+stealing the wedge drag-to-move gesture; the transparent titlebar still drags.
+Removed now-dead slotNames + slotBinding. Cleaned test-click pollution again.

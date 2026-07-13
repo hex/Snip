@@ -13,12 +13,6 @@ struct RingEditorView: View {
     /// Delete the current selection.
     var onDelete: () -> Void
 
-    /// Wedge 0 points up; indices increase clockwise. Named bearings beat "Slot 3".
-    static let slotNames = [
-        "Top", "Top right", "Right", "Bottom right",
-        "Bottom", "Bottom left", "Left", "Top left",
-    ]
-
     var body: some View {
         VStack(spacing: 0) {
             RingBoard(model: model, selection: $selection, onAddToSlot: onAddToSlot)

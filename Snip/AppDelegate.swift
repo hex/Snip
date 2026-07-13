@@ -83,7 +83,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // A dark, frosted HUD like the overlay: transparent titlebar, content edge to edge.
             window.titlebarAppearsTransparent = true
             window.titleVisibility = .hidden
-            window.isMovableByWindowBackground = true
             window.appearance = NSAppearance(named: .darkAqua)
             window.isOpaque = false
             window.backgroundColor = .clear
