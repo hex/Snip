@@ -79,7 +79,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func openMainWindow(tab: MainTab) {
         if mainWindow == nil {
-            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 780, height: 540),
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 940, height: 560),
                                   styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                                   backing: .buffered, defer: false)
             window.title = "Snip"

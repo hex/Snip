@@ -93,7 +93,7 @@ struct LibraryView: View {
             }
         }
         .padding(EdgeInsets(top: 34, leading: 26, bottom: 22, trailing: 26))
-        .frame(minWidth: 420, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(minWidth: 360, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onChange(of: model.library) { _, _ in model.save() }
     }
 

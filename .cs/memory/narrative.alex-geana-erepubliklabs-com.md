@@ -1109,3 +1109,14 @@ is consistent regardless of what's behind. The overlay's own VisualEffectView is
 untouched (still behindWindow, correct there). Also: ring centered vertically in its
 pane (Spacers), window 860x600 -> 780x540, minWidth/Height eased. Verified: clean,
 consistent, premium dark; no desktop bleed.
+
+## 2026-07-13: Sidebar instead of the top tab bar
+
+Alex: didn't like the segmented top tab bar (reads iOS). Offered sidebar / gear /
+native-toolbar; Alex picked the left sidebar. MainWindowView now: HStack { sidebar
+(custom rows: Snippets/Trigger/Exceptions, SF icon + label, accent-tinted selected
+pill at signal.opacity(0.20), bound to model.mainTab) | Divider | content }. A 30px
+top spacer in the sidebar clears the floating traffic lights. Window widened
+780->940 for sidebar(176) + ring pane + editor; editor minWidth 420->360 to fit.
+Menu "Settings…" still opens on the Trigger tab and the sidebar reflects it.
+Verified Snippets + Trigger panes render cleanly; much more native one-window feel.
