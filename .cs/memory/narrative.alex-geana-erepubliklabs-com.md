@@ -860,3 +860,22 @@ hypothesis was right and reassertSpaceMembership() (re-set collectionBehavior in
 first-show-on-fullscreen migration. Same-value re-set is NOT a no-op for collectionBehavior; it
 re-registers with the WindowServer. The bug was originally described as intermittent, so if it ever
 recurs, revisit; but the repro'd failure mode is now fixed and confirmed. Commit 1dd0211.
+
+
+## 2026-07-13 (cont.): keyboard trigger via model-tiered workflow
+
+Alex: "build" the keyboard trigger, AND "Setup a workflow using Sonnet 5 agents for low level tasks
+and research, delegate ... synthesis and reviews to Opus 4.8 agents. Finalize with a Fable 5 agent
+or review the final outputs yourself. Avoid fanning out agents while keeping the agents focused."
+
+Authored a lean 2-stage Workflow (run wf_4a31d503-ec5, no fan-out): Sonnet 5 (high effort)
+IMPLEMENTS the hold-a-hotkey trigger surgically in 3 files; Opus 4.8 (high effort) ADVERSARIALLY
+REVIEWS the git diff for the #1 risk (regressing the verified middle-mouse path) + key-leakage,
+autorepeat, mouseMoved-passthrough, watchdog key-state, recorder-monitor cleanup; both build to
+green. I FINALIZE (review + build + Alex tests). Design handed to the agents: single CGEventTap +
+keyDown/keyUp/mouseMoved; openTrigger enum {mouse,hotkey} so triggers don't interfere; default
+hold OPTION+SPACE, rebindable; consume the hotkey keyDown(initial+repeats)+keyUp; passthrough
+mouseMoved; watchdog uses keyState for hotkey; Settings gets a shortcut recorder + enable toggle.
+
+Tree clean at 2309e49 before the workflow, so a bad result reverts with `git checkout .`. Waiting
+for the workflow completion notification; then review the diff, build, hand to Alex.
