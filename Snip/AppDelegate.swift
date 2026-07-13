@@ -92,15 +92,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openSettings() {
         if settingsWindow == nil {
-            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 260),
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 360),
                                   styleMask: [.titled, .closable],
                                   backing: .buffered, defer: false)
             window.title = "Snip Settings"
             window.contentView = NSHostingView(
-                rootView: SettingsView(model: model, onConfigChanged: { [weak self] in
-                    self?.restartEventTap()
-                }))
+                rootView: SettingsView(
+                    model: model,
+                    onConfigChanged: { [weak self] in self?.restartEventTap() },
+                    onRecordingChange: { [weak self] recording in self?.engine?.setPaused(recording) }))
             window.isReleasedWhenClosed = false
+            // Resume the tap if Settings is closed mid-recording, so a paused tap can't get stranded.
+            window.delegate = self
             window.center()
             settingsWindow = window
         }
@@ -148,4 +151,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         restartEventTap()
     }
 
+}
+
+extension AppDelegate: NSWindowDelegate {
+    /// Only the Settings window sets us as its delegate. If it closes mid-recording, the tap was left
+    /// paused; resume it so the trigger keeps working. Resuming an already-live tap is a no-op.
+    func windowWillClose(_ notification: Notification) {
+        guard notification.object as? NSWindow === settingsWindow else { return }
+        engine?.setPaused(false)
+    }
 }

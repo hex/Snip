@@ -892,3 +892,42 @@ not torn down if you click Record then never press a key.
 Deferred the queued walk-away task (`cs -queue defer`) to stop the nag loop. Context ~92%; told Alex
 to run /compact. After compact: hear Alex's Option+Space test, optionally fix the recorder-monitor
 cleanup, and pick up the deferred task.
+
+## 2026-07-13: Unified trigger (hold key / hold mouse button / double-click-hold)
+
+Alex: "record even mouse keys", then "also double middle mouse click as a trigger".
+Two AskUserQuestion decisions: (1) ONE unified trigger, middle-mouse toggle
+removed; (2) double-click means "double-click and HOLD the 2nd press", and the
+single trigger has a Hold/Double-click gesture picker (not multiple triggers).
+
+Model moved into SnipKit as pure, tested logic (TDD, 22 new tests, 47 total):
+`TriggerBinding` = holdKey(code,modifierRawValue) | holdMouseButton(Int) |
+doubleClickMouseButton(Int). Three-case enum makes "double-click a key"
+unrepresentable. Pure predicates: mouseDownOpens(button:clickState:),
+keyOpens(code:flags:), isKeyCode, isMouseButton, keyCode, mouseButtonNumber.
+Default = holdMouseButton(2), label "Middle Button". Old app-target
+TriggerConfig.swift deleted; AppModel decodes with try? so a stale blob just
+resets to default (no migration).
+
+Double-click is cheap because macOS already computes click count:
+CGEventField.mouseEventClickState >= 2 opens the ring on the 2nd press; the 1st
+single click passes through to the app (the honest tradeoff; Exceptions covers
+conflicts). After the opening press it collapses into the identical hold session.
+
+EventTapEngine: one binding-driven switch replaces the two hardcoded paths;
+extracted beginSession/commit; watchdog polls keyState/buttonState off the
+binding (thumb buttons >2 have no CGMouseButton case, so they fall back to
+closing after 4s). OpenTrigger renamed .mouse/.key (held button streams
+otherMouseDragged, held key streams mouseMoved).
+
+Recorder tap-conflict fix: the CGEventTap is upstream of app dispatch, so
+re-recording the currently-bound button would be eaten by the tap (and bloom the
+ring). Added engine.setPaused(_:); SettingsView pauses the tap while its local
+NSEvent monitor records, resumes on capture / onDisappear / windowWillClose
+(AppDelegate is the Settings window delegate) so a paused tap can never strand.
+
+Settings Trigger tab: segmented Hold/Double-click picker + label + Record; Hold
+records key or mouse ([.keyDown,.otherMouseDown]), Double-click records mouse
+only. Window bumped 460x260 -> 480x360 for the added picker+footer.
+
+Status: BUILD SUCCEEDED, 47 tests green, relaunched. NOT yet user-tested.

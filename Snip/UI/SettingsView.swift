@@ -4,6 +4,7 @@ import SwiftUI
 import AppKit
 import CoreGraphics
 import UniformTypeIdentifiers
+import SnipKit
 
 /// A pickable running app for the suppress list.
 private struct RunningApp: Identifiable {
@@ -15,6 +16,8 @@ private struct RunningApp: Identifiable {
 struct SettingsView: View {
     @Bindable var model: AppModel
     var onConfigChanged: () -> Void
+    /// Pauses/resumes the event tap so a bound key/button reaches the recorder instead of the ring.
+    var onRecordingChange: (Bool) -> Void
 
     @State private var isRecordingShortcut = false
     @State private var shortcutMonitor: Any?
@@ -28,43 +31,88 @@ struct SettingsView: View {
         }
         .frame(width: 480, height: 340)
         .onChange(of: model.triggerConfig) { _, _ in onConfigChanged() }
+        .onDisappear { if isRecordingShortcut { cancelRecording() } }
     }
 
     // MARK: - Trigger
 
+    /// The two ways to arm the trigger. A key or a mouse button can be held; only a mouse button can
+    /// be double-clicked (with its second press held).
+    private enum Gesture: String, CaseIterable, Identifiable {
+        case hold = "Hold"
+        case doubleClick = "Double-click"
+        var id: String { rawValue }
+    }
+
+    private var currentGesture: Gesture {
+        if case .doubleClickMouseButton = model.triggerConfig.binding { return .doubleClick }
+        return .hold
+    }
+
     private var triggerTab: some View {
         Form {
             Section {
-                Toggle("Hold the middle mouse button", isOn: $model.triggerConfig.middleMouseEnabled)
-            } footer: {
-                Text("While held, the ring opens under your cursor. Drag to a wedge and release to insert; release in the middle to cancel.")
-            }
+                Picker("Gesture", selection: gestureBinding) {
+                    ForEach(Gesture.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented)
 
-            Section {
-                Toggle("Hold a keyboard shortcut", isOn: $model.triggerConfig.hotkeyEnabled)
-                shortcutRecorderRow
+                HStack {
+                    Text("Trigger")
+                    Spacer()
+                    Text(model.triggerConfig.label)
+                        .foregroundStyle(.secondary)
+                    Button(isRecordingShortcut ? recordingPrompt : "Record") {
+                        startRecordingShortcut()
+                    }
+                    .disabled(isRecordingShortcut)
+                }
+            } header: {
+                Text("Open the ring")
             } footer: {
-                Text("While held, the ring opens under your cursor. Drag the mouse to a wedge and release the shortcut to insert; release near the center to cancel.")
+                Text(footerText)
             }
         }
         .formStyle(.grouped)
     }
 
-    private var shortcutRecorderRow: some View {
-        HStack {
-            Text("Shortcut")
-            Spacer()
-            Text(shortcutLabel)
-                .foregroundStyle(.secondary)
-            Button(isRecordingShortcut ? "Press a key…" : "Record") {
-                startRecordingShortcut()
-            }
-            .disabled(isRecordingShortcut)
+    private var recordingPrompt: String {
+        currentGesture == .doubleClick ? "Click a mouse button…" : "Press a key or mouse button…"
+    }
+
+    private var footerText: String {
+        switch currentGesture {
+        case .hold:
+            return "Hold your trigger to open the ring under the cursor, drag to a wedge, and release to insert. Release in the middle to cancel. Record a keyboard shortcut, the middle button, or a side/thumb button."
+        case .doubleClick:
+            return "Double-click your mouse button and keep the second press held: the ring opens under the cursor. Drag to a wedge and release to insert; release in the middle to cancel."
         }
     }
 
-    private var shortcutLabel: String {
-        modifierSymbols(for: model.triggerConfig.hotkeyModifiers) + model.triggerConfig.hotkeyKeyLabel
+    /// Reads the gesture from the stored binding and, on change, rebuilds the binding so the picker and
+    /// label never disagree. Double-click needs a mouse button, so flipping a key binding to
+    /// double-click defaults it to the middle button.
+    private var gestureBinding: Binding<Gesture> {
+        Binding(get: { currentGesture }, set: { setGesture($0) })
+    }
+
+    private func setGesture(_ gesture: Gesture) {
+        switch gesture {
+        case .hold:
+            if case let .doubleClickMouseButton(n) = model.triggerConfig.binding {
+                model.triggerConfig.binding = .holdMouseButton(n)
+                model.triggerConfig.label = mouseButtonLabel(for: n)
+            }
+        case .doubleClick:
+            switch model.triggerConfig.binding {
+            case .holdMouseButton(let n), .doubleClickMouseButton(let n):
+                model.triggerConfig.binding = .doubleClickMouseButton(n)
+                model.triggerConfig.label = mouseButtonLabel(for: n)
+            case .holdKey:
+                model.triggerConfig.binding = .doubleClickMouseButton(2)
+                model.triggerConfig.label = mouseButtonLabel(for: 2)
+            }
+        }
     }
 
     private func modifierSymbols(for flags: CGEventFlags) -> String {
@@ -76,22 +124,51 @@ struct SettingsView: View {
         return symbols
     }
 
-    private func startRecordingShortcut() {
-        isRecordingShortcut = true
-        shortcutMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            recordShortcut(from: event)
-            return nil   // swallow the captured key so it doesn't type into Settings
+    private func mouseButtonLabel(for button: Int) -> String {
+        switch button {
+        case 2: return "Middle Button"
+        default: return "Button \(button + 1)"   // buttonNumber is 0-indexed; people count from 1
         }
     }
 
-    private func recordShortcut(from event: NSEvent) {
+    private func startRecordingShortcut() {
+        isRecordingShortcut = true
+        onRecordingChange(true)   // pause the tap so the pressed input reaches this monitor
+        // Double-click can only bind a mouse button; hold can bind a key or a mouse button.
+        let mask: NSEvent.EventTypeMask = currentGesture == .doubleClick
+            ? [.otherMouseDown]
+            : [.keyDown, .otherMouseDown]
+        shortcutMonitor = NSEvent.addLocalMonitorForEvents(matching: mask) { event in
+            recordTrigger(from: event)
+            return nil   // swallow the captured input so it doesn't act on Settings
+        }
+    }
+
+    /// Removes the monitor and resumes the tap without recording anything (abandoned recording).
+    private func cancelRecording() {
         if let shortcutMonitor { NSEvent.removeMonitor(shortcutMonitor) }
         shortcutMonitor = nil
         isRecordingShortcut = false
+        onRecordingChange(false)
+    }
 
-        model.triggerConfig.hotkeyKeyCode = Int(event.keyCode)
-        model.triggerConfig.hotkeyModifierRawValue = cgEventFlags(from: event.modifierFlags).rawValue
-        model.triggerConfig.hotkeyKeyLabel = keyLabel(for: event.keyCode, characters: event.charactersIgnoringModifiers)
+    private func recordTrigger(from event: NSEvent) {
+        cancelRecording()
+
+        let doubleClick = currentGesture == .doubleClick
+        switch event.type {
+        case .keyDown where !doubleClick:
+            let modifiers = cgEventFlags(from: event.modifierFlags)
+            model.triggerConfig.binding = .holdKey(code: Int(event.keyCode), modifierRawValue: modifiers.rawValue)
+            model.triggerConfig.label = modifierSymbols(for: modifiers)
+                + keyLabel(for: event.keyCode, characters: event.charactersIgnoringModifiers)
+        case .otherMouseDown:
+            let button = event.buttonNumber
+            model.triggerConfig.binding = doubleClick ? .doubleClickMouseButton(button) : .holdMouseButton(button)
+            model.triggerConfig.label = mouseButtonLabel(for: button)
+        default:
+            break   // a key in double-click mode: ignored (the mask should exclude it anyway)
+        }
     }
 
     private func cgEventFlags(from modifiers: NSEvent.ModifierFlags) -> CGEventFlags {
@@ -124,7 +201,7 @@ struct SettingsView: View {
         Form {
             Section {
                 if model.ignoredApps.isEmpty {
-                    Text("Snip captures the middle button everywhere. Add apps to let it through — where middle-click already means something (Blender orbit, a browser's new tab).")
+                    Text("Snip captures the trigger everywhere. Add apps to let it through — where the trigger already means something (Blender orbit, a browser's new tab).")
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(model.ignoredApps) { app in

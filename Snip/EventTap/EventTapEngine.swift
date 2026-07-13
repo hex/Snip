@@ -1,5 +1,5 @@
-// ABOUTME: Owns the global CGEventTap that detects a middle-mouse hold or a keyboard chord hold and streams the drag.
-// ABOUTME: Consumes the triggering events so the app underneath never sees them; runs off-main.
+// ABOUTME: Owns the global CGEventTap that detects the user's trigger (held key, held mouse button, or
+// ABOUTME: double-click-and-hold) and streams the drag. Consumes the triggering events; runs off-main.
 import AppKit
 import SnipKit
 
@@ -20,8 +20,9 @@ final class EventTapEngine {
 
     /// The dead zone matches the ring's see-through hub, so the visible hole IS the cancel target.
     private let session = RadialSession(wedgeCount: 8, deadZoneRadius: 35, hysteresisDegrees: 6)
-    /// Which trigger currently has the ring open, so mouse and hotkey handling never interfere.
-    private enum OpenTrigger { case mouse, hotkey }
+    /// Which input currently has the ring open, so mouse and key handling never interfere: a held
+    /// mouse button streams `.otherMouseDragged`; a held key streams `.mouseMoved`.
+    private enum OpenTrigger { case mouse, key }
     private var openTrigger: OpenTrigger?
     private var isOpen: Bool { openTrigger != nil }
     private var anchor = CGPoint.zero
@@ -100,6 +101,13 @@ final class EventTapEngine {
         return true
     }
 
+    /// Pauses/resumes the tap without tearing it down. Settings pauses it while recording a new
+    /// binding, so the pressed key/button reaches the recorder instead of being consumed as a trigger.
+    func setPaused(_ paused: Bool) {
+        guard let tap else { return }
+        CGEvent.tapEnable(tap: tap, enable: !paused)
+    }
+
     func stop() {
         if let tap { CGEvent.tapEnable(tap: tap, enable: false) }
         if let tapRunLoop { CFRunLoopStop(tapRunLoop) }
@@ -147,53 +155,45 @@ final class EventTapEngine {
             return Unmanaged.passUnretained(event)
         }
 
-        // "otherMouse" covers buttons 2...31; thumb buttons are 3/4 and must pass through.
-        let isMiddleButton = event.getIntegerValueField(.mouseEventButtonNumber) == 2
+        let binding = config.binding
 
         switch type {
-        case .otherMouseDown where config.middleMouseEnabled && openTrigger == nil && isMiddleButton:
-            // Let the middle button through in ignored apps (e.g. Blender orbit, browser new-tab).
+        // A bound mouse button opens the ring. A double-click binding waits for the 2nd press
+        // (clickState >= 2), so the first single click still reaches the app underneath.
+        case .otherMouseDown where openTrigger == nil
+            && binding.mouseDownOpens(button: event.getIntegerValueField(.mouseEventButtonNumber),
+                                      clickState: event.getIntegerValueField(.mouseEventClickState)):
+            // Let the button through in ignored apps (e.g. Blender orbit, browser new-tab).
             if frontmostIsIgnored { return Unmanaged.passUnretained(event) }
-            anchor = event.location
-            selection = .none
-            openTrigger = .mouse
-            armWatchdog()
-            DispatchQueue.main.async { self.onBloom(self.anchor) }
-            return nil   // consume: the app underneath never sees the middle click
+            beginSession(at: event.location, trigger: .mouse)
+            return nil   // consume: the app underneath never sees the opening press
 
-        case .otherMouseDragged where openTrigger == .mouse && isMiddleButton:
+        case .otherMouseDragged where openTrigger == .mouse
+            && binding.isMouseButton(event.getIntegerValueField(.mouseEventButtonNumber)):
             updateSelection(at: event.location)
             return nil
 
-        case .otherMouseUp where openTrigger == .mouse && isMiddleButton:
-            let committed = selection
-            openTrigger = nil
-            watchdog?.cancel()
-            DispatchQueue.main.async { self.onCommit(committed) }
+        case .otherMouseUp where openTrigger == .mouse
+            && binding.isMouseButton(event.getIntegerValueField(.mouseEventButtonNumber)):
+            commit()
             return nil
 
-        case .keyDown where openTrigger == nil && isHotkey(event)
+        case .keyDown where openTrigger == nil
+            && binding.keyOpens(code: event.getIntegerValueField(.keyboardEventKeycode), flags: event.flags)
             && event.getIntegerValueField(.keyboardEventAutorepeat) == 0 && !frontmostIsIgnored:
-            anchor = event.location
-            selection = .none
-            openTrigger = .hotkey
-            armWatchdog()
-            DispatchQueue.main.async { self.onBloom(self.anchor) }
+            beginSession(at: event.location, trigger: .key)
             return nil   // consume so the key doesn't type
 
-        case .keyDown where openTrigger == .hotkey
-            && event.getIntegerValueField(.keyboardEventKeycode) == Int64(config.hotkeyKeyCode):
+        case .keyDown where openTrigger == .key
+            && binding.isKeyCode(event.getIntegerValueField(.keyboardEventKeycode)):
             return nil   // swallow autorepeats of the held key, even if the modifier was let go first
 
-        case .keyUp where openTrigger == .hotkey
-            && event.getIntegerValueField(.keyboardEventKeycode) == Int64(config.hotkeyKeyCode):
-            let committed = selection
-            openTrigger = nil
-            watchdog?.cancel()
-            DispatchQueue.main.async { self.onCommit(committed) }
+        case .keyUp where openTrigger == .key
+            && binding.isKeyCode(event.getIntegerValueField(.keyboardEventKeycode)):
+            commit()
             return nil
 
-        case .mouseMoved where openTrigger == .hotkey:
+        case .mouseMoved where openTrigger == .key:
             updateSelection(at: event.location)
             return Unmanaged.passUnretained(event)   // never consume: swallowing this freezes the cursor
 
@@ -202,12 +202,21 @@ final class EventTapEngine {
         }
     }
 
-    /// True when the event's keycode and the watched modifiers match the configured hotkey exactly.
-    private func isHotkey(_ event: CGEvent) -> Bool {
-        guard config.hotkeyEnabled else { return false }
-        guard event.getIntegerValueField(.keyboardEventKeycode) == Int64(config.hotkeyKeyCode) else { return false }
-        let watched: CGEventFlags = [.maskCommand, .maskShift, .maskAlternate, .maskControl]
-        return event.flags.intersection(watched) == config.hotkeyModifiers.intersection(watched)
+    /// Anchors a new drag session under the cursor and blooms the ring.
+    private func beginSession(at location: CGPoint, trigger: OpenTrigger) {
+        anchor = location
+        selection = .none
+        openTrigger = trigger
+        armWatchdog()
+        DispatchQueue.main.async { self.onBloom(self.anchor) }
+    }
+
+    /// Ends the open session and inserts the wedge under the cursor at release.
+    private func commit() {
+        let committed = selection
+        openTrigger = nil
+        watchdog?.cancel()
+        DispatchQueue.main.async { self.onCommit(committed) }
     }
 
     private func updateSelection(at point: CGPoint) {
@@ -226,10 +235,18 @@ final class EventTapEngine {
             guard let self else { return }
             let stillHeld: Bool
             switch self.openTrigger {
-            case .hotkey:
-                stillHeld = CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(self.config.hotkeyKeyCode))
+            case .key:
+                if let code = self.config.binding.keyCode {
+                    stillHeld = CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(code))
+                } else { stillHeld = false }
             case .mouse:
-                stillHeld = CGEventSource.buttonState(.combinedSessionState, button: .center)
+                if let button = self.config.binding.mouseButtonNumber,
+                   let cgButton = CGMouseButton(rawValue: UInt32(button)) {
+                    stillHeld = CGEventSource.buttonState(.combinedSessionState, button: cgButton)
+                } else {
+                    // Thumb buttons (> 2) have no CGMouseButton case to poll; fall back to closing.
+                    stillHeld = false
+                }
             case nil:
                 return
             }

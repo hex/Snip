@@ -4,7 +4,7 @@ import Foundation
 import Observation
 import SnipKit
 
-/// An app where Snip lets the middle button through instead of opening the ring.
+/// An app where Snip lets the trigger through instead of opening the ring.
 struct IgnoredApp: Codable, Identifiable, Equatable {
     var bundleID: String
     var name: String
@@ -20,7 +20,7 @@ final class AppModel {
     var triggerConfig: TriggerConfig {
         didSet { persistTriggerConfig() }
     }
-    /// Apps where the middle-mouse trigger is suppressed (e.g. Blender, where it means orbit).
+    /// Apps where the trigger is suppressed (e.g. Blender, where the middle button means orbit).
     var ignoredApps: [IgnoredApp] {
         didSet { persistIgnoredApps() }
     }
