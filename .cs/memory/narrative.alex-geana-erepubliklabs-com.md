@@ -783,3 +783,11 @@ and the overlayCollectionBehavior constant. Builds, runs (pid 29119).
 Confidence: root cause + fix VERY HIGH (measured). Real-app end-to-end not yet exercised in the
 built Snip. NEXT: Alex holds middle-mouse over REAL iTerm2 native fullscreen to confirm the ring now
 floats on top.
+
+
+## 2026-07-13 (cont.): fullscreen CONFIRMED in real app. Snip v1 complete.
+
+Alex: "it floats over." The ring now floats over real iTerm2 native fullscreen. Fullscreen fix
+verified end-to-end in the built app. Every open thread is closed: core flow, lens (magnify +
+barrel), motion, fullscreen, per-app ignore + running-apps picker, tabbed settings, repo-integrity.
+App runs (pid 29119), 25 SnipKit tests green, working tree clean. README outcome filled.

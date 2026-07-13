@@ -31,4 +31,29 @@ Accessibility permission. Greenfield repo, no app code yet at design time.
 
 ## Outcome
 
-[To be filled when session is complete - summarize what was accomplished]
+Shipped a working, polished macOS app on branch `design/snip-brainstorm`, from a one-sentence
+idea to a verified product.
+
+**Core (all verified in-app):** menu-bar agent; hold middle mouse (or a hotkey, seam built) to
+bloom a CleanShot-style frosted radial menu; drag+release inserts the snippet at the cursor of the
+frontmost app via paste-and-restore with a `$|` caret marker and `{date}/{time}/{clipboard}` tokens.
+Library window, per-app suppress list (running-apps picker), tabbed Settings, first-run
+Accessibility onboarding.
+
+**Architecture:** `SnipKit` SwiftPM package holds pure logic (models, radial geometry, token
+resolver, JSON store, coordinate math), 25 unit tests green. Thin AppKit/SwiftUI app target
+(`CGEventTap` on its own run loop, display-only non-activating overlay, `PasteEngine`).
+
+**Signature UI:** a live **magnifying-glass loupe** in the ring's hub, real WindowServer
+magnification via a private `CABackdropLayer` capture group (negative `zoom`) plus a
+`displacementMap` `CAFilter` for barrel/edge distortion, with an elastic iris entry tuned against
+the 12 animation principles. The ring floats over native-fullscreen apps.
+
+**Notable debugging:** the loupe took several Fable-measured breakthroughs (CIFilters don't run on
+a server-hosted backdrop; CAPortalLayer can't magnify a backdrop; the zoom law
+`1/(1+scale·zoom)`); the fullscreen bug was `isFloatingPanel=true` silently resetting the window
+level below the fullscreen app. Two lens claims were retracted after being made on misread
+screenshots, the durable memories capture what actually works.
+
+Design spec + implementation plan under `docs/superpowers/`. Deferred (spec, not bugs): v1.5
+search palette, v2 per-app rings, notarization/Sparkle/licensing.
