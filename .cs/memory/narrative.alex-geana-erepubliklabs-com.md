@@ -1068,3 +1068,16 @@ the dark HUD). Composited the full-bleed render into a proper macOS squircle via
 CoreGraphics (Snip/UI... no: a throwaway swift script): 824 content centered in
 1024, 100px transparent margin, 185 corner radius. Re-sliced the appiconset,
 rebuilt, icns verified. snip-icon.png is now the Bloom squircle.
+
+## 2026-07-13: Icon final -> ig-1 minimal monochrome dial
+
+Alex rejected Bloom (too ornate/photoreal) and a flat colorful modern set; wanted
+minimal + monochrome. Hand-drew segmented-dial concepts with CoreGraphics
+(mono-a..d, then m2 refinements) for pixel-perfect geometry; Alex liked the mono-a
+segmented-dial style, then said "use image generation". Generated monochrome dials
+via Gemini edit-from-reference off mono-a-sq.png (locks the 8-wedge layout that
+text-to-image gets wrong). Alex picked ig-1: a monochrome 8-segment dial, one
+upper-right wedge lit white with a soft bloom + center dot, near-black with subtle
+glassy depth. Finalized: snip-icon.png = ig-1 squircled (824 in 1024, 100 margin,
+185 radius), re-sliced the appiconset, built, verified the icns at 256px. The
+squircle.swift + mono.swift helpers live in the session scratchpad (not committed).
