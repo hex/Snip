@@ -1,5 +1,5 @@
-// ABOUTME: SwiftUI window to create, edit, delete snippets and pin them to ring slots 0 through 7.
-// ABOUTME: Native source-list (list + bottom +/- bar) and an editor; mutations persist immediately.
+// ABOUTME: SwiftUI window to create, edit, delete snippets and arrange them on the ring.
+// ABOUTME: Left pane is the ring editor; right pane edits the selected snippet. Mutations persist.
 import SwiftUI
 import SnipKit
 
@@ -8,60 +8,19 @@ struct LibraryView: View {
     @State private var selection: Snippet.ID?
     @FocusState private var labelFocused: Bool
 
-    /// Wedge 0 points up; indices increase clockwise. Naming them beats "Slot 3".
-    private static let slotNames = [
-        "Top", "Top right", "Right", "Bottom right",
-        "Bottom", "Bottom left", "Left", "Top left",
-    ]
-
     var body: some View {
         HSplitView {
-            sidebar
+            RingEditorView(model: model,
+                           selection: $selection,
+                           onAddToSlot: addToSlot,
+                           onAddUnpinned: addUnpinned,
+                           onDelete: deleteSelected)
+                .frame(minWidth: 320, idealWidth: 340, maxWidth: 380)
             detail
         }
-        .frame(minWidth: 680, minHeight: 440)
+        .frame(minWidth: 780, minHeight: 520)
         .onAppear { consumePendingEdit() }
         .onChange(of: model.pendingEditSnippetID) { _, _ in consumePendingEdit() }
-    }
-
-    // MARK: - Sidebar (source list + bottom add/remove bar)
-
-    private var sidebar: some View {
-        VStack(spacing: 0) {
-            List(selection: $selection) {
-                ForEach(model.library.snippets) { snippet in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(snippet.label.isEmpty ? "Untitled" : snippet.label)
-                            .font(.headline)
-                        Text(snippet.slot.map { Self.slotNames[$0] } ?? "Unpinned")
-                            .font(.caption)
-                            .foregroundStyle(snippet.slot == nil ? .tertiary : .secondary)
-                    }
-                    .tag(snippet.id)
-                }
-            }
-
-            Divider()
-
-            HStack(spacing: 0) {
-                Button(action: addSnippet) {
-                    Image(systemName: "plus").frame(width: 24, height: 20)
-                }
-                .help("New snippet")
-
-                Button(action: deleteSelected) {
-                    Image(systemName: "minus").frame(width: 24, height: 20)
-                }
-                .disabled(selection == nil)
-                .help("Delete selected snippet")
-
-                Spacer()
-            }
-            .buttonStyle(.borderless)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 4)
-        }
-        .frame(minWidth: 200, idealWidth: 220, maxWidth: 320)
     }
 
     // MARK: - Detail (editor)
@@ -94,7 +53,7 @@ struct LibraryView: View {
                 Picker("Ring position", selection: slotBinding(for: snippet.id)) {
                     Text("Unpinned").tag(-1)
                     ForEach(0..<8, id: \.self) { slot in
-                        Text(Self.slotNames[slot]).tag(slot)
+                        Text(RingEditorView.slotNames[slot]).tag(slot)
                     }
                 }
             }
@@ -132,7 +91,14 @@ struct LibraryView: View {
             set: { model.setSlot($0 < 0 ? nil : $0, for: id) })
     }
 
-    private func addSnippet() {
+    /// Adds a snippet already pinned to an empty ring slot, then jumps to editing it.
+    private func addToSlot(_ slot: Int) {
+        let id = model.createSnippet(inSlot: slot)
+        selection = id
+        DispatchQueue.main.async { labelFocused = true }
+    }
+
+    private func addUnpinned() {
         let snippet = Snippet(label: "New", body: "")
         model.library.snippets.append(snippet)
         selection = snippet.id

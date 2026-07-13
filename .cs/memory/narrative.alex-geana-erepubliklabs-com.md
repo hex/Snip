@@ -931,3 +931,25 @@ records key or mouse ([.keyDown,.otherMouseDown]), Double-click records mouse
 only. Window bumped 460x260 -> 480x360 for the added picker+footer.
 
 Status: BUILD SUCCEEDED, 47 tests green, relaunched. NOT yet user-tested.
+
+## 2026-07-13: Ring editor in the Library (walk-away queue task 1)
+
+"we need a ring editor in the snippets so we can move/edit/add snippets on the
+desired space". Built a visual 8-slot ring as the Library's left pane, mirroring
+the radial menu geometry (slot 0 Top, clockwise). New RingEditorView.swift:
+fixed 300pt square (no GeometryReader/aspectRatio ambiguity), cells at
+angle=i/8*2pi placed via .position. Tap a filled slot to select+edit; tap an
+empty slot (+) to create+select+focus a snippet there; drag a slot onto another
+to move/swap; drag onto the Unpinned list to unpin; drag an unpinned snippet
+onto a slot to pin it. One String drag payload with a typed prefix
+("slot:i" vs "snip:uuid") so a single dropDestination(for:String.self) tells the
+three intents apart.
+
+Model: SnippetLibrary.moveSnippet(fromSlot:toSlot:) swaps occupants (assign
+evicts; move swaps), TDD'd, 4 tests (51 total green). AppModel.moveSnippet
+wrapper persists. LibraryView restructured: ring pane + detail editor; old flat
+source-list removed; slotNames centralized on RingEditorView; editor's Ring
+position picker kept (syncs via model). Window 780x552 -> 780x552 (min
+780x520). Verified visually via screencapture (osascript opened the status menu,
+moved window onto main display): ring renders correctly with real persisted
+state. BUILD SUCCEEDED. Interaction wiring is standard SwiftUI + model-tested.

@@ -38,4 +38,35 @@ final class SlotAssignmentTests: XCTestCase {
         lib.assign(slot: 7, to: UUID())
         XCTAssertEqual(lib, before)
     }
+
+    // MARK: moveSnippet — dragging one ring position onto another
+
+    func testMovingToAnEmptySlotRelocatesTheSnippet() {
+        var (lib, first, _) = library()   // first at slot 3, nothing at slot 0
+        lib.moveSnippet(fromSlot: 3, toSlot: 0)
+        XCTAssertEqual(lib.snippets.first { $0.id == first.id }?.slot, 0)
+        XCTAssertTrue(lib.snippets.filter { $0.slot == 3 }.isEmpty)
+    }
+
+    func testMovingOntoAnOccupiedSlotSwapsThem() {
+        let a = Snippet(label: "A", body: "a", slot: 3)
+        let b = Snippet(label: "B", body: "b", slot: 0)
+        var lib = SnippetLibrary(schemaVersion: 1, snippets: [a, b])
+        lib.moveSnippet(fromSlot: 3, toSlot: 0)
+        XCTAssertEqual(lib.snippets.first { $0.id == a.id }?.slot, 0)
+        XCTAssertEqual(lib.snippets.first { $0.id == b.id }?.slot, 3)
+    }
+
+    func testMovingFromAnEmptySlotChangesNothing() {
+        var (lib, _, _) = library()   // slot 1 is empty
+        let before = lib
+        lib.moveSnippet(fromSlot: 1, toSlot: 2)
+        XCTAssertEqual(lib, before)
+    }
+
+    func testMovingToTheSameSlotIsANoOp() {
+        var (lib, first, _) = library()
+        lib.moveSnippet(fromSlot: 3, toSlot: 3)
+        XCTAssertEqual(lib.snippets.first { $0.id == first.id }?.slot, 3)
+    }
 }

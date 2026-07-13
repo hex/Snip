@@ -70,6 +70,12 @@ final class AppModel {
         save()
     }
 
+    /// Drags one ring position onto another, swapping occupants (the ring editor's move gesture).
+    func moveSnippet(fromSlot: Int, toSlot: Int) {
+        library.moveSnippet(fromSlot: fromSlot, toSlot: toSlot)
+        save()
+    }
+
     /// Creates a blank snippet pinned to `slot` and returns its id, for the fire-an-empty-wedge flow.
     @discardableResult
     func createSnippet(inSlot slot: Int?) -> Snippet.ID {

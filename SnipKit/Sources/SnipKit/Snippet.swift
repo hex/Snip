@@ -41,4 +41,14 @@ public struct SnippetLibrary: Codable, Equatable {
         }
         snippets[target].slot = slot
     }
+
+    /// Moves the snippet at `fromSlot` to `toSlot`, swapping with the occupant of `toSlot` if any.
+    /// A no-op when the slots match or `fromSlot` is empty. This is the ring editor's drag gesture.
+    public mutating func moveSnippet(fromSlot: Int, toSlot: Int) {
+        guard fromSlot != toSlot,
+              let source = snippets.firstIndex(where: { $0.slot == fromSlot }) else { return }
+        let dest = snippets.firstIndex { $0.slot == toSlot }
+        snippets[source].slot = toSlot
+        if let dest, dest != source { snippets[dest].slot = fromSlot }
+    }
 }
