@@ -18,6 +18,13 @@ final class OverlayPanel: NSPanel {
     private static let overlayCollectionBehavior: NSWindow.CollectionBehavior =
         [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
 
+    /// Re-set on every show. Prewarming the panel on the launch Space leaves a stale Space
+    /// association, so the first trigger directly onto another app's fullscreen Space can fail to
+    /// migrate. Re-asserting forces the WindowServer to re-evaluate membership for the active Space.
+    func reassertSpaceMembership() {
+        collectionBehavior = Self.overlayCollectionBehavior
+    }
+
     /// AppKit nudges windows back on screen by default. The ring must stay centered on the
     /// cursor even at a screen edge, or the drawn wedges stop matching the drag geometry.
     override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {

@@ -835,3 +835,18 @@ identical filter. First real change still applies once. Builds, runs (pid 36731)
 BLOCKED on Alex: does the loupe distortion now appear cleanly with the bloom, no late pop/jump.
 If a residual startup delay remains, may be WindowServer compositing latency on the backdrop filter
 (escalate to Fable to pre-warm/apply at wire time).
+
+
+## 2026-07-13 (cont.): intermittent first-show-on-fullscreen (reassert on show, hypothesis)
+
+Alex: ring "sometimes doesnt show when middle clicking on iTerm" fullscreen; workaround = open it
+on another window first, then it works on iTerm fullscreen for the session. Diagnosis: stale Space
+association from the launch-time offscreen prewarm; first trigger DIRECTLY onto a fullscreen Space
+does not reliably migrate the .canJoinAllSpaces panel, but showing it once on a normal Space primes
+it. Re-added `OverlayPanel.reassertSpaceMembership()` (re-set collectionBehavior) called in show()
+before orderFrontRegardless, to force per-show re-evaluation. (Previously removed for the LEVEL bug;
+this is a different failure mode.) Builds, runs (pid 74550).
+HYPOTHESIS, not verified. Risk: same-value collectionBehavior re-set could be a no-op. Test: QUIT
+and relaunch Snip, go straight to iTerm native fullscreen, trigger on first attempt without priming
+elsewhere. If it still intermittently fails, escalate to Fable to measure (may need orderOut+
+orderFront toggle, or a real onscreen prewarm to register all-Spaces membership).

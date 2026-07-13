@@ -41,6 +41,7 @@ final class OverlayPanelController {
         let origin = ScreenGeometry.centeredOrigin(forSize: canvasSize, center: center)
 
         panel.setFrameOrigin(NSPoint(x: origin.x, y: origin.y))
+        panel.reassertSpaceMembership()   // re-evaluate Space membership so first-show-on-fullscreen migrates
         panel.orderFrontRegardless()
 
         // Next runloop tick, so SwiftUI sees a false→true transition and springs.
