@@ -1038,3 +1038,18 @@ the current selection, run on .onChange(of: selection) and .onAppear. The active
 edited draft (== selection) is kept; abandoned ones are dropped when you move on or
 reopen. Verified functionally via scripted clicks: tap empty wedge -> 4->5 (draft
 created); select DATE -> 5->4 (purged). Loadout intact.
+
+## 2026-07-13: App icon (Stash-style frosted glass on gradient)
+
+Alex: needs an app icon like the Stash macOS project (found at
+~/.claude-sessions/Stash). Stash's convention: a 1024 source (stash-icon.png, a
+frosted-glass clipboard on a blue->purple gradient) sliced into
+AppIcon.appiconset (16/32/128/256/512 @1x/2x), wired via
+ASSETCATALOG_COMPILER_APPICON_NAME=AppIcon. Replicated for Snip with its own
+signature: generated a 1024 frosted-glass RADIAL RING (8 wedges + glowing hub
+sphere) on a violet->magenta gradient via the image-generation plugin (Gemini won
+a 3-provider bake-off). Sliced with sips, Contents.json copied from Stash, root
+Assets.xcassets/Contents.json added, Info.plist CFBundleIconName=AppIcon. Source
+kept at snip-icon.png (project root). Verified: build embeds AppIcon.icns +
+Assets.car; extracted icns renders correctly. Note: Snip is LSUIElement (no dock
+icon) so the icon shows in Finder / About / System Settings, not the Dock.
