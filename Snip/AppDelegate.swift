@@ -76,10 +76,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openLibrary() {
         if libraryWindow == nil {
-            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 720, height: 480),
-                                  styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 820, height: 560),
+                                  styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                                   backing: .buffered, defer: false)
             window.title = "Snippets"
+            // A dark, frosted HUD like the overlay: transparent titlebar, content edge to edge.
+            window.titlebarAppearsTransparent = true
+            window.titleVisibility = .hidden
+            window.isMovableByWindowBackground = true
+            window.appearance = NSAppearance(named: .darkAqua)
+            window.isOpaque = false
+            window.backgroundColor = .clear
             window.contentView = NSHostingView(rootView: LibraryView(model: model))
             window.isReleasedWhenClosed = false
             window.center()

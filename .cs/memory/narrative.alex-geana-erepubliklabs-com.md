@@ -953,3 +953,51 @@ position picker kept (syncs via model). Window 780x552 -> 780x552 (min
 780x520). Verified visually via screencapture (osascript opened the status menu,
 moved window onto main display): ring renders correctly with real persisted
 state. BUILD SUCCEEDED. Interaction wiring is standard SwiftUI + model-tested.
+
+## 2026-07-13: Library redesign to a dark HUD (interface-design + 3-lens council)
+
+Alex: the ring editor "looks horrible", wanted sexier, invoked /interface-design +
+"check with the council". Ran a 3-lens Agent council (HUD surface / physical
+instrument / editorial dissent). All three converged on: kill the pastel circles
++ grey grouped Form, and replace the native "Ring position" popup with a
+mini-ring compass picker. They split only on material (dark vs light). Alex chose
+the dark "Rehearsal HUD".
+
+Built: HUDTheme.swift (cool-graphite tokens named for the world: ground/socket/
+chamber/raised/signal; one hue by lightness; system accent = the ONLY signal) +
+HUDBackground (NSVisualEffectView .hudWindow behindWindow + 0.55 ground tint).
+RingEditorView rewritten dark: chambers (loaded = top-lit gradient + emphasis
+rim; empty = flat socket + dashed rim + "+"; unnamed = dot; selected = accent rim
++ glow); faint bearing ticks; hub = LIVE PREVIEW of the selected snippet (label +
+resolved body via TokenResolver + accent $| caret) or "N/8 loaded"; unpinned =
+horizontal chip tray. RingPositionPicker.swift = mini-ring bearing control (tap a
+nub to pin, tap lit nub to unpin). LibraryView editor rewritten bespoke: big
+title input w/ hairline baseline (accent on focus), BEARING mini-ring, recessed
+TEXT code surface (SF Mono, accent caret), tappable token chips. AppDelegate:
+Library window now dark, transparent titlebar, fullSizeContentView, frosted.
+
+Verified visually via screencapture: posted a real CGEvent left-click through a
+tiny swift script (osascript "click at" only does AXPress, no good; pyobjc absent)
+to select SIG and confirm the selected/hub/editor states. BUILD SUCCEEDED. Big
+improvement, premium and cohesive with the overlay. Settings window still plain
+(could unify next). Not yet reviewed by Alex live.
+
+## 2026-07-13: Ring editor = the ACTUAL radial menu (Alex's follow-up)
+
+Alex: "why can't we use the exact same design as the radial menu?" Correct, my
+first HUD pass drew 8 separate chambers (a reinterpretation). Pivoted RingEditorView
+to a RingBoard that reuses the overlay's real drawing: WedgeShape / RingShape /
+SpokesShape, the donut VisualEffectView, and GlassHubDressing (extracted from
+RadialMenuView.hubGlass so the overlay and the board draw the identical glossy hub;
+safe identical refactor, overlay untouched behaviorally). Left pane is now a static
+render of the live menu: frosted glass ring, pie wedges with labels (+ when empty),
+hairline spokes, accent-filled selected wedge, glossy hub sphere. Interaction: a
+circular tap/drag "petal" sits at each wedge's label (tap = edit/add, drag =
+move/swap, drag to tray = unpin). Dropped the chamber cells and the hub live-preview.
+
+Caution learned: verifying UI by posting CGEvent clicks at guessed coordinates
+(swift script; pyobjc/cliclick absent, osascript "click at" only does AXPress)
+polluted the real store with ~10 junk untitled snippets (empty-wedge taps create).
+Cleaned via jq (drop empty label+body) and restored the loadout
+SIG@0/Fable@1/HI@5/DATE unpinned. Next time: capture unselected only, or click a
+known filled element; never guess onto empty wedges.

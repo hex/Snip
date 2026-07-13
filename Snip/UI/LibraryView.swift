@@ -9,16 +9,20 @@ struct LibraryView: View {
     @FocusState private var labelFocused: Bool
 
     var body: some View {
-        HSplitView {
-            RingEditorView(model: model,
-                           selection: $selection,
-                           onAddToSlot: addToSlot,
-                           onAddUnpinned: addUnpinned,
-                           onDelete: deleteSelected)
-                .frame(minWidth: 320, idealWidth: 340, maxWidth: 380)
-            detail
+        ZStack {
+            HUDBackground()
+            HSplitView {
+                RingEditorView(model: model,
+                               selection: $selection,
+                               onAddToSlot: addToSlot,
+                               onAddUnpinned: addUnpinned,
+                               onDelete: deleteSelected)
+                    .frame(minWidth: 320, idealWidth: 340, maxWidth: 380)
+                detail
+            }
         }
         .frame(minWidth: 780, minHeight: 520)
+        .preferredColorScheme(.dark)
         .onAppear { consumePendingEdit() }
         .onChange(of: model.pendingEditSnippetID) { _, _ in consumePendingEdit() }
     }
@@ -29,11 +33,23 @@ struct LibraryView: View {
         if let index = selectedIndex {
             editor(for: index)
         } else {
-            ContentUnavailableView("No snippet selected",
-                                   systemImage: "text.insert",
-                                   description: Text("Pick one on the left, or add a snippet with +."))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            emptyState
         }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "text.insert")
+                .font(.system(size: 34, weight: .light))
+                .foregroundStyle(HUD.textMuted)
+            Text("No snippet selected")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(HUD.textSecondary)
+            Text("Tap a wedge on the ring, or add a snippet with +.")
+                .font(.system(size: 12))
+                .foregroundStyle(HUD.textTertiary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var selectedIndex: Int? {
@@ -44,32 +60,72 @@ struct LibraryView: View {
     @ViewBuilder private func editor(for index: Int) -> some View {
         let snippet = model.library.snippets[index]
 
-        Form {
-            Section {
+        VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 7) {
                 TextField("Label", text: $model.library.snippets[index].label)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(HUD.textPrimary)
                     .focused($labelFocused)
                     .onSubmit { model.save() }
-
-                Picker("Ring position", selection: slotBinding(for: snippet.id)) {
-                    Text("Unpinned").tag(-1)
-                    ForEach(0..<8, id: \.self) { slot in
-                        Text(RingEditorView.slotNames[slot]).tag(slot)
-                    }
-                }
+                Rectangle()
+                    .fill(labelFocused ? HUD.signal : HUD.hairline)
+                    .frame(height: 1)
+                    .animation(.easeOut(duration: 0.15), value: labelFocused)
             }
 
-            Section("Text") {
+            VStack(alignment: .leading, spacing: 8) {
+                fieldLabel("BEARING")
+                RingPositionPicker(slot: slotBinding(for: snippet.id))
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                fieldLabel("TEXT")
                 TextEditor(text: $model.library.snippets[index].body)
-                    .font(.system(.body, design: .monospaced))
-                    .frame(minHeight: 180)
-                Text("Tokens: {date} · {time} · {clipboard}      Caret: $|")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .scrollContentBackground(.hidden)
+                    .font(.system(size: 13, design: .monospaced))
+                    .foregroundStyle(HUD.textPrimary)
+                    .tint(HUD.signal)
+                    .padding(10)
+                    .frame(minHeight: 200, maxHeight: .infinity)
+                    .background(RoundedRectangle(cornerRadius: 10).fill(HUD.socket))
+                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(HUD.hairline, lineWidth: 1))
+                tokenShelf(index: index)
             }
         }
-        .formStyle(.grouped)
-        .frame(minWidth: 420)
+        .padding(EdgeInsets(top: 34, leading: 26, bottom: 22, trailing: 26))
+        .frame(minWidth: 420, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onChange(of: model.library) { _, _ in model.save() }
+    }
+
+    private func fieldLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 10, weight: .semibold))
+            .tracking(0.9)
+            .foregroundStyle(HUD.textTertiary)
+    }
+
+    /// Tokens the snippet expands at paste time, plus the $| caret marker; tapping appends one.
+    private func tokenShelf(index: Int) -> some View {
+        HStack(spacing: 6) {
+            ForEach(["{date}", "{time}", "{clipboard}", "$|"], id: \.self) { token in
+                Button {
+                    model.library.snippets[index].body += token
+                    model.save()
+                } label: {
+                    Text(token)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(HUD.textSecondary)
+                        .padding(.horizontal, 8)
+                        .frame(height: 22)
+                        .background(RoundedRectangle(cornerRadius: 6).fill(HUD.chamber))
+                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(HUD.hairline, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .help("Insert \(token)")
+            }
+            Spacer()
+        }
     }
 
     // MARK: - Actions
@@ -83,12 +139,11 @@ struct LibraryView: View {
         DispatchQueue.main.async { labelFocused = true }
     }
 
-    /// Maps the picker's Int tag to the optional slot, going through AppModel so the
-    /// one-snippet-per-slot rule is enforced in a single place.
-    private func slotBinding(for id: Snippet.ID) -> Binding<Int> {
+    /// Bridges the mini-ring picker to AppModel so the one-snippet-per-slot rule stays in one place.
+    private func slotBinding(for id: Snippet.ID) -> Binding<Int?> {
         Binding(
-            get: { model.library.snippets.first { $0.id == id }?.slot ?? -1 },
-            set: { model.setSlot($0 < 0 ? nil : $0, for: id) })
+            get: { model.library.snippets.first { $0.id == id }?.slot },
+            set: { model.setSlot($0, for: id) })
     }
 
     /// Adds a snippet already pinned to an empty ring slot, then jumps to editing it.

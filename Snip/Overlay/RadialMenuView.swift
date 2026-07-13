@@ -40,6 +40,41 @@ struct RingShape: Shape {
     }
 }
 
+/// The glossy dressing over the hub: caustic sheen, opposed edge cues, lit rim. Shared by the live
+/// overlay's loupe and the Library's static ring, so the hub reads identically in both places.
+struct GlassHubDressing: View {
+    let hubSize: CGFloat
+
+    var body: some View {
+        ZStack {
+            // Caustic: a soft off-centre highlight, like light pooling inside glass.
+            Circle()
+                .fill(RadialGradient(colors: [.white.opacity(0.22), .clear],
+                                     center: UnitPoint(x: 0.34, y: 0.26),
+                                     startRadius: 0, endRadius: hubSize * 0.55))
+                .blendMode(.plusLighter)
+
+            Circle()
+                .stroke(.black.opacity(0.32), lineWidth: 6)
+                .blur(radius: 4)
+                .offset(y: -4)
+                .mask(Circle())
+
+            Circle()
+                .stroke(.white.opacity(0.3), lineWidth: 3)
+                .blur(radius: 2.5)
+                .offset(y: 4)
+                .mask(Circle())
+
+            Circle().strokeBorder(.black.opacity(0.22), lineWidth: 1)
+            Circle().strokeBorder(
+                LinearGradient(colors: [.white.opacity(0.5), .white.opacity(0.04)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing),
+                lineWidth: 1.2)
+        }
+    }
+}
+
 /// Hairlines on the boundaries between wedges.
 struct SpokesShape: Shape {
     let wedgeCount: Int
@@ -175,38 +210,13 @@ struct RadialMenuView: View {
         .frame(width: hubSize, height: hubSize)
     }
 
-    /// The glass dressing over the loupe: caustic sheen, opposed edge cues, lit rim.
-    /// Scales and fades with its own elastic spring, timed to match the loupe's iris.
+    /// The glass dressing over the loupe. Scales and fades with its own elastic spring, timed to
+    /// match the loupe's iris.
     private var hubGlass: some View {
-        ZStack {
-            // Caustic: a soft off-centre highlight, like light pooling inside glass.
-            Circle()
-                .fill(RadialGradient(colors: [.white.opacity(0.22), .clear],
-                                     center: UnitPoint(x: 0.34, y: 0.26),
-                                     startRadius: 0, endRadius: hubSize * 0.55))
-                .blendMode(.plusLighter)
-
-            Circle()
-                .stroke(.black.opacity(0.32), lineWidth: 6)
-                .blur(radius: 4)
-                .offset(y: -4)
-                .mask(Circle())
-
-            Circle()
-                .stroke(.white.opacity(0.3), lineWidth: 3)
-                .blur(radius: 2.5)
-                .offset(y: 4)
-                .mask(Circle())
-
-            Circle().strokeBorder(.black.opacity(0.22), lineWidth: 1)
-            Circle().strokeBorder(
-                LinearGradient(colors: [.white.opacity(0.5), .white.opacity(0.04)],
-                               startPoint: .topLeading, endPoint: .bottomTrailing),
-                lineWidth: 1.2)
-        }
-        .scaleEffect(model.isVisible ? 1.0 : hiddenHubScale)
-        .opacity(model.isVisible ? 1.0 : 0.0)
-        .animation(model.isVisible ? lensBloom : dismiss, value: model.isVisible)
+        GlassHubDressing(hubSize: hubSize)
+            .scaleEffect(model.isVisible ? 1.0 : hiddenHubScale)
+            .opacity(model.isVisible ? 1.0 : 0.0)
+            .animation(model.isVisible ? lensBloom : dismiss, value: model.isVisible)
     }
 
     // MARK: - Labels
