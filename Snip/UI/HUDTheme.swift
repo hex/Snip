@@ -7,9 +7,10 @@ import AppKit
 /// for that world, not for a generic gray scale.
 enum HUD {
     static let ground = Color(hex: 0x0E1013)      // the abyss behind the vibrancy
-    static let socket = Color(hex: 0x0B0D10)      // recessed wells: empty chambers, the body field
-    static let chamber = Color(hex: 0x171A20)     // a loaded chamber / resting surface
-    static let raised = Color(hex: 0x20242C)      // the hub disc, hover, selected chamber fill
+    static let socket = Color(hex: 0x0B0D10)      // recessed wells
+    static let chamber = Color(hex: 0x171A20)     // a resting surface / chip
+    static let field = Color(hex: 0x191D25)       // a text input surface: recessed, but not a black slab
+    static let raised = Color(hex: 0x20242C)      // hover, selected fill
 
     static let hairline = Color.white.opacity(0.08)   // quiet edges and dividers
     static let emphasis = Color.white.opacity(0.16)   // a boundary that should be found

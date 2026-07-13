@@ -1012,3 +1012,17 @@ unpin; drag a tray chip onto a wedge = pin). Also removed
 isMovableByWindowBackground: it let background clicks drag the window and risked
 stealing the wedge drag-to-move gesture; the transparent titlebar still drags.
 Removed now-dead slotNames + slotBinding. Cleaned test-click pollution again.
+
+## 2026-07-13: Realtime wedge drag + lighter editor
+
+Alex: drag "doesn't move in realtime" and "the layout is heavy". Fixes:
+(1) Replaced the wedges' .draggable/.dropDestination transfer metaphor with a live
+DragGesture in the ring's named coordinate space "ring". The dragged wedge's label
+follows the cursor (dragGhost), the target wedge lights accent live, and release
+snaps to the nearest wedge (moveSnippet swap) or unpins if flung past outer*1.12.
+Tap vs drag disambiguated by >6pt translation in onEnded. Tray chips keep
+.draggable(uuid) -> ring dropDestination(location) to pin at the dropped wedge.
+Removed the RingDrag enum. glassRing doesn't depend on drag state so SwiftUI skips
+re-compositing the vibrancy each tick.
+(2) Lightened the heavy near-black TEXT slab: new HUD.field (#191D25) instead of
+socket, and capped height 160-320 so it stops filling the whole pane.

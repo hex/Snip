@@ -57,13 +57,6 @@ struct RingEditorView: View {
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, minHeight: 78, alignment: .leading)
         .contentShape(Rectangle())
-        .dropDestination(for: String.self) { items, _ in
-            // A wedge dragged here unpins its snippet; an already-unpinned drag is a no-op.
-            guard let payload = items.first, let drag = RingDrag(payload),
-                  case .slot(let from) = drag, let snippet = model.snippet(inSlot: from) else { return false }
-            model.setSlot(nil, for: snippet.id)
-            return true
-        }
     }
 
     private func trayChip(_ snippet: Snippet) -> some View {
@@ -79,7 +72,7 @@ struct RingEditorView: View {
                 .strokeBorder(isSelected ? HUD.signal : HUD.hairline, lineWidth: isSelected ? 1.5 : 1))
             .contentShape(RoundedRectangle(cornerRadius: 8))
             .onTapGesture { selection = snippet.id }
-            .draggable(RingDrag.snippet(snippet.id).transferString)
+            .draggable(snippet.id.uuidString)   // drop onto a wedge to pin it there
     }
 
     // MARK: - Add / remove
@@ -110,9 +103,9 @@ struct RingEditorView: View {
     }
 }
 
-/// A static render of the live radial menu: the same glass ring, spokes, accent-filled selected
-/// wedge, wedge labels, and glossy hub the overlay draws, minus the bloom and the magnifying loupe.
-/// Each wedge carries a circular tap/drag target at its label so you can edit, add, move, and swap.
+/// A live render of the radial menu: the same glass ring, spokes, wedge labels, and glossy hub the
+/// overlay draws. A wedge is dragged in real time (its label follows the cursor and the target wedge
+/// lights up); releasing snaps it to the nearest wedge and swaps, or unpins it if flung off the ring.
 private struct RingBoard: View {
     @Bindable var model: AppModel
     @Binding var selection: Snippet.ID?
@@ -121,31 +114,52 @@ private struct RingBoard: View {
     static let size: CGFloat = 272
     static let hubFraction: CGFloat = 0.30
     private var hubSize: CGFloat { Self.size * Self.hubFraction }
+    private var center: CGPoint { CGPoint(x: Self.size / 2, y: Self.size / 2) }
+    private var outerRadius: CGFloat { Self.size / 2 }
+    private var hubRadius: CGFloat { outerRadius * Self.hubFraction }
     private let labelRadius: CGFloat = 90
     private let accent = Color(nsColor: .controlAccentColor)
+
+    /// The wedge currently being dragged and where its label sits (ring coordinate space).
+    @State private var drag: DragState?
+    private struct DragState { let slot: Int; var location: CGPoint }
 
     var body: some View {
         ZStack {
             glassRing
-
-            if let index = selectedIndex {
-                WedgeShape(index: index, wedgeCount: 8, innerRadiusFraction: Self.hubFraction)
-                    .fill(accent.opacity(0.50))
-            }
-
+            highlightedWedge
             SpokesShape(wedgeCount: 8, innerRadiusFraction: Self.hubFraction)
                 .stroke(.white.opacity(0.16), lineWidth: 1)
-
             Circle().strokeBorder(
                 LinearGradient(colors: [.white.opacity(0.38), .white.opacity(0.10)],
                                startPoint: .top, endPoint: .bottom),
                 lineWidth: 1)
-
             hub
-
             ForEach(0..<8, id: \.self) { wedgePetal($0) }
+            if let drag { dragGhost(drag) }
         }
         .frame(width: Self.size, height: Self.size)
+        .coordinateSpace(.named("ring"))
+        .dropDestination(for: String.self) { items, location in
+            // A tray chip dropped onto the ring pins it to the wedge under the drop.
+            guard let first = items.first, let id = UUID(uuidString: first),
+                  let target = wedge(at: location) else { return false }
+            model.setSlot(target, for: id)
+            return true
+        }
+    }
+
+    /// The wedge lit accent: the live drag target while dragging, otherwise the current selection.
+    @ViewBuilder private var highlightedWedge: some View {
+        if let drag {
+            if let target = wedge(at: drag.location) {
+                WedgeShape(index: target, wedgeCount: 8, innerRadiusFraction: Self.hubFraction)
+                    .fill(accent.opacity(0.50))
+            }
+        } else if let index = selectedIndex {
+            WedgeShape(index: index, wedgeCount: 8, innerRadiusFraction: Self.hubFraction)
+                .fill(accent.opacity(0.50))
+        }
     }
 
     private var glassRing: some View {
@@ -184,74 +198,84 @@ private struct RingBoard: View {
         return snippet.slot
     }
 
-    /// The wedge's label (or a + when empty) plus a circular tap/drag target, placed at the wedge
-    /// centroid exactly where the live menu draws its label.
-    @ViewBuilder private func wedgePetal(_ index: Int) -> some View {
+    /// The wedge's label (or a + when empty) plus a circular tap/drag target at the wedge centroid.
+    /// While this wedge is being dragged its label is hidden here and drawn as the moving ghost.
+    private func wedgePetal(_ index: Int) -> some View {
         let angle = Double(index) * .pi / 4   // clockwise from up
         let snippet = model.snippet(inSlot: index)
         let isSelected = snippet != nil && snippet?.id == selection
         let text = snippet.map { $0.label.isEmpty ? "Untitled" : $0.label }
+        let isDragging = drag?.slot == index
 
-        let petal = ZStack {
+        return ZStack {
             Circle().fill(Color.white.opacity(0.001)).frame(width: 68, height: 68)
-            Text(text ?? "+")
-                .font(.system(size: 12, weight: text == nil ? .regular : .semibold))
-                .foregroundStyle(labelColor(isSelected: isSelected, isEmpty: text == nil))
-                .shadow(color: .black.opacity(0.55), radius: 2, y: 1)
-                .scaleEffect(isSelected ? 1.12 : 1.0)
-                .lineLimit(1)
-                .frame(width: 76)
+            if !isDragging {
+                Text(text ?? "+")
+                    .font(.system(size: 12, weight: text == nil ? .regular : .semibold))
+                    .foregroundStyle(labelColor(isSelected: isSelected, isEmpty: text == nil))
+                    .shadow(color: .black.opacity(0.55), radius: 2, y: 1)
+                    .scaleEffect(isSelected ? 1.12 : 1.0)
+                    .lineLimit(1)
+                    .frame(width: 76)
+            }
         }
         .contentShape(Circle())
-        .onTapGesture {
-            if let snippet { selection = snippet.id } else { onAddToSlot(index) }
-        }
-        .dropDestination(for: String.self) { items, _ in drop(items.first, onWedge: index) }
         .offset(x: labelRadius * sin(angle), y: -labelRadius * cos(angle))
-
-        if snippet != nil {
-            petal.draggable(RingDrag.slot(index).transferString)
-        } else {
-            petal
-        }
+        .gesture(
+            DragGesture(minimumDistance: 0, coordinateSpace: .named("ring"))
+                .onChanged { value in
+                    guard snippet != nil, moved(value) else { return }
+                    drag = DragState(slot: index, location: value.location)
+                }
+                .onEnded { value in
+                    if !moved(value) {
+                        if let snippet { selection = snippet.id } else { onAddToSlot(index) }
+                    } else if let snippet {
+                        commitDrag(from: index, to: value.location, snippet: snippet)
+                    }
+                    drag = nil
+                }
+        )
     }
 
-    private func drop(_ payload: String?, onWedge index: Int) -> Bool {
-        guard let payload, let drag = RingDrag(payload) else { return false }
-        switch drag {
-        case .slot(let from): model.moveSnippet(fromSlot: from, toSlot: index)
-        case .snippet(let id): model.setSlot(index, for: id)
+    /// The label of the wedge being dragged, following the cursor above everything else.
+    private func dragGhost(_ drag: DragState) -> some View {
+        let snippet = model.snippet(inSlot: drag.slot)
+        return Text(snippet.map { $0.label.isEmpty ? "Untitled" : $0.label } ?? "")
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(.white)
+            .shadow(color: .black.opacity(0.6), radius: 3, y: 1)
+            .scaleEffect(1.15)
+            .position(drag.location)
+            .allowsHitTesting(false)
+    }
+
+    private func moved(_ value: DragGesture.Value) -> Bool {
+        hypot(value.translation.width, value.translation.height) > 6
+    }
+
+    private func commitDrag(from: Int, to location: CGPoint, snippet: Snippet) {
+        if hypot(location.x - center.x, location.y - center.y) > outerRadius * 1.12 {
+            model.setSlot(nil, for: snippet.id)   // flung off the ring: unpin
+        } else if let target = wedge(at: location), target != from {
+            model.moveSnippet(fromSlot: from, toSlot: target)
         }
-        return true
+        // released in the hub or back on itself: no change
+    }
+
+    /// The wedge index under a ring-space point, or nil when the point is in the hub or off the ring.
+    private func wedge(at location: CGPoint) -> Int? {
+        let dx = location.x - center.x, dy = location.y - center.y
+        let distance = hypot(dx, dy)
+        guard distance > hubRadius, distance <= outerRadius * 1.12 else { return nil }
+        var a = atan2(dx, -dy)   // 0 = up, increasing clockwise
+        if a < 0 { a += 2 * .pi }
+        return Int((a / (2 * .pi / 8)).rounded()) % 8
     }
 
     private func labelColor(isSelected: Bool, isEmpty: Bool) -> Color {
         if isSelected { return .white }
         if isEmpty { return .white.opacity(0.34) }
         return .white.opacity(0.94)
-    }
-}
-
-/// The ring editor's drag payload, carried as a String so one `dropDestination(for: String.self)`
-/// can tell a moved wedge from a dragged-in unpinned snippet.
-private enum RingDrag {
-    case slot(Int)
-    case snippet(Snippet.ID)
-
-    var transferString: String {
-        switch self {
-        case .slot(let index): return "slot:\(index)"
-        case .snippet(let id): return "snip:\(id.uuidString)"
-        }
-    }
-
-    init?(_ string: String) {
-        if string.hasPrefix("slot:"), let index = Int(string.dropFirst(5)) {
-            self = .slot(index)
-        } else if string.hasPrefix("snip:"), let id = UUID(uuidString: String(string.dropFirst(5))) {
-            self = .snippet(id)
-        } else {
-            return nil
-        }
     }
 }

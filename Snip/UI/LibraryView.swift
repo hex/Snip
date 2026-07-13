@@ -80,8 +80,8 @@ struct LibraryView: View {
                     .foregroundStyle(HUD.textPrimary)
                     .tint(HUD.signal)
                     .padding(10)
-                    .frame(minHeight: 200, maxHeight: .infinity)
-                    .background(RoundedRectangle(cornerRadius: 10).fill(HUD.socket))
+                    .frame(minHeight: 160, maxHeight: 320)
+                    .background(RoundedRectangle(cornerRadius: 10).fill(HUD.field))
                     .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(HUD.hairline, lineWidth: 1))
                 tokenShelf(index: index)
             }
