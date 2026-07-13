@@ -13,12 +13,18 @@ import SwiftUI
 /// A CAPortalLayer + transform does NOT magnify a backdrop, and CIFilters never run on one.
 final class BackdropLoupeView: NSView {
 
-    var magnification: CGFloat = 1.5 { didSet { applyZoom() } }
+    // SwiftUI re-passes these unchanged on every re-render; act only on a real change, or the
+    // repeated re-layout rebuilds and reassigns the backdrop filter, which re-composites and jumps.
+    var magnification: CGFloat = 1.5 {
+        didSet { guard magnification != oldValue else { return }; applyZoom() }
+    }
 
     /// Barrel/edge lens curvature as a fraction of the loupe radius.
     /// 0 = flat magnifier; ~0.45 = pronounced physical-lens rim refraction.
     /// Silently ignored (flat loupe) when the private displacement filter is unavailable.
-    var lensDistortion: CGFloat = 0.42 { didSet { needsLayout = true } }
+    var lensDistortion: CGFloat = 0.42 {
+        didSet { guard lensDistortion != oldValue else { return }; needsLayout = true }
+    }
 
     static var isSupported: Bool { NSClassFromString("CABackdropLayer") != nil }
 
@@ -40,6 +46,8 @@ final class BackdropLoupeView: NSView {
     private let aperture = CAShapeLayer()
     private var mapCachePx = 0
     private var mapCache: CGImage?
+    /// The (pixel-size : amount) the current filter was built for, so we never reassign an identical one.
+    private var appliedDistortionKey: String?
 
     private var distortionActive: Bool { lensDistortion > 0.001 && Self.distortionSupported }
     /// Capture margin (fraction of radius) so rim displacement samples real content, not transparency.
@@ -163,17 +171,26 @@ final class BackdropLoupeView: NSView {
 
     private func applyDistortion() {
         guard let consumer else { return }
-        guard distortionActive else { consumer.filters = []; return }
+        guard distortionActive else {
+            if consumer.filters?.isEmpty == false { consumer.filters = [] }
+            appliedDistortionKey = nil
+            return
+        }
         let scale = window?.backingScaleFactor ?? 2
         let px = Int((consumer.bounds.width * scale).rounded())
-        guard px > 0 else { consumer.filters = []; return }
+        guard px > 0 else { return }
+        let amount = lensDistortion * (bounds.width / 2)
+        let key = "\(px):\(amount)"
+        guard key != appliedDistortionKey else { return }   // identical filter already applied — no re-composite
+
         if px != mapCachePx { mapCache = Self.barrelMap(diameterPx: px); mapCachePx = px }
-        guard let map = mapCache,
-              let filter = Self.displacementFilter(map: map, amount: lensDistortion * (bounds.width / 2)) else {
+        guard let map = mapCache, let filter = Self.displacementFilter(map: map, amount: amount) else {
             consumer.filters = []   // graceful fallback to the flat magnifier
+            appliedDistortionKey = nil
             return
         }
         consumer.filters = [filter]
+        appliedDistortionKey = key
     }
 
     /// A radial barrel displacement map: R,G encode a signed radial vector (0.5 = neutral, growing

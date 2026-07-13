@@ -819,3 +819,19 @@ Alex showed the library title bar ("we need to fix this"): redundant title + jan
   app: the window must be key before focus takes). addSnippet also focuses the label.
 Builds, runs (pid 78251). BLOCKED on Alex: library looks clean now, and firing an empty wedge opens
 the editor with the label focused for typing.
+
+
+## 2026-07-13 (cont.): loupe distortion jump, idempotent filter application
+
+Alex: "weird effect in the middle, distortion applied after a while and visually jumping."
+Root cause (read from BackdropLoupeView): `lensDistortion.didSet -> needsLayout`, and SwiftUI
+re-passes the same lensDistortion/magnification on every re-render during the bloom, so layout()
+ran repeatedly and applyDistortion() rebuilt a NEW CAFilter and reassigned consumer.filters each
+time. Reassigning a backdrop filter re-composites -> the jumping; the filter landing a frame after
+the zoom -> "after a while".
+Fix: (1) magnification/lensDistortion didSets now guard `!= oldValue` (no-op on unchanged value);
+(2) applyDistortion is idempotent via `appliedDistortionKey = "px:amount"`, skips reassigning an
+identical filter. First real change still applies once. Builds, runs (pid 36731).
+BLOCKED on Alex: does the loupe distortion now appear cleanly with the bloom, no late pop/jump.
+If a residual startup delay remains, may be WindowServer compositing latency on the backdrop filter
+(escalate to Fable to pre-warm/apply at wire time).
