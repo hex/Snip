@@ -15,9 +15,9 @@ struct RingEditorView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            Spacer(minLength: 12)
             RingBoard(model: model, selection: $selection, onAddToSlot: onAddToSlot)
-                .padding(.top, 16)
-                .padding(.bottom, 16)
+            Spacer(minLength: 12)
             Divider().overlay(HUD.hairline)
             tray
             Divider().overlay(HUD.hairline)
@@ -165,17 +165,19 @@ private struct RingBoard: View {
     private var glassRing: some View {
         ZStack {
             RingShape(holeFraction: Self.hubFraction)
-                .fill(.black.opacity(0.26), style: FillStyle(eoFill: true))
-                .blur(radius: 13)
-                .offset(y: 6)
+                .fill(.black.opacity(0.30), style: FillStyle(eoFill: true))
+                .blur(radius: 14)
+                .offset(y: 7)
 
-            VisualEffectView(diameter: Self.size, holeFraction: Self.hubFraction)
-
+            // A dark glass band, consistent regardless of what sits behind the window.
             RingShape(holeFraction: Self.hubFraction)
-                .fill(.black.opacity(0.16), style: FillStyle(eoFill: true))
+                .fill(LinearGradient(colors: [Color(hex: 0x2A2E37), Color(hex: 0x15171D)],
+                                     startPoint: .top, endPoint: .bottom),
+                      style: FillStyle(eoFill: true))
 
+            // Specular sheen along the top, like glass.
             RingShape(holeFraction: Self.hubFraction)
-                .fill(LinearGradient(colors: [.white.opacity(0.12), .clear],
+                .fill(LinearGradient(colors: [.white.opacity(0.10), .clear],
                                      startPoint: .top, endPoint: .center),
                       style: FillStyle(eoFill: true))
         }

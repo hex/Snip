@@ -33,25 +33,13 @@ extension Color {
     }
 }
 
-/// A behind-window vibrancy layer so the Library reads as frosted glass, like the overlay. A thin
-/// ground tint sits on top so blur still breathes through without washing out the content.
+/// A solid dark gradient. The live overlay frosts against the user's screen, but this stationary
+/// window has only the desktop behind it, so a real vibrancy just samples random junk. A clean,
+/// consistent dark ground reads far more intentional.
 struct HUDBackground: View {
     var body: some View {
-        VisualEffect(material: .hudWindow)
-            .overlay(HUD.ground.opacity(0.55))
+        LinearGradient(colors: [Color(hex: 0x191C22), Color(hex: 0x0C0E12)],
+                       startPoint: .top, endPoint: .bottom)
             .ignoresSafeArea()
     }
-}
-
-private struct VisualEffect: NSViewRepresentable {
-    let material: NSVisualEffectView.Material
-    func makeNSView(context: Context) -> NSVisualEffectView {
-        let view = NSVisualEffectView()
-        view.material = material
-        view.blendingMode = .behindWindow
-        view.state = .active
-        view.appearance = NSAppearance(named: .darkAqua)
-        return view
-    }
-    func updateNSView(_ view: NSVisualEffectView, context: Context) {}
 }

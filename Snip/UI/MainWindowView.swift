@@ -14,7 +14,7 @@ struct MainWindowView: View {
             content
         }
         .background(HUDBackground())
-        .frame(minWidth: 820, minHeight: 560)
+        .frame(minWidth: 760, minHeight: 500)
         .preferredColorScheme(.dark)
     }
 

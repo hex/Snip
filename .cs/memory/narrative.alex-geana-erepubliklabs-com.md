@@ -1096,3 +1096,16 @@ resumes a paused tap. Custom segmented top bar (height 46, centered) instead of 
 native TabView so the tab bar doesn't jam the traffic lights on the frameless window;
 content switches via a plain switch (transient state resets on tab change, acceptable).
 Ring top padding 34->16 (top bar now clears the lights). Verified all 3 tabs render.
+
+## 2026-07-13: Clean up the merged window (solid dark, not desktop-frost)
+
+Alex: merged-window UI "kinda bad" (screenshot showed muddy grey frost sampling the
+desktop behind + sparse empty panes). Root cause: HUDBackground and the ring both
+used behindWindow vibrancy, which samples random apps behind a STATIONARY window
+(fine for the overlay over real content, junk here). Fixes: HUDBackground ->
+solid dark LinearGradient (#191C22->#0C0E12); RingBoard.glassRing -> dark glass
+gradient fill (#2A2E37->#15171D) + specular instead of VisualEffectView, so the ring
+is consistent regardless of what's behind. The overlay's own VisualEffectView is
+untouched (still behindWindow, correct there). Also: ring centered vertically in its
+pane (Spacers), window 860x600 -> 780x540, minWidth/Height eased. Verified: clean,
+consistent, premium dark; no desktop bleed.
