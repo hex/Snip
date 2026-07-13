@@ -21,6 +21,7 @@ targets:
         LSUIElement: true
         CFBundleName: Snip
         CFBundleDisplayName: Snip
+        CFBundleIconName: AppIcon
         NSHumanReadableCopyright: ""
     entitlements:
       path: Snip/Snip.entitlements
