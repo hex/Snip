@@ -18,13 +18,6 @@ final class OverlayPanel: NSPanel {
     private static let overlayCollectionBehavior: NSWindow.CollectionBehavior =
         [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
 
-    /// Re-set at show time so the WindowServer re-evaluates Space membership. The offscreen prewarm
-    /// (orderFront + orderOut at launch) sticky-assigns the panel to the desktop Space; without this
-    /// a later orderFront re-shows it there instead of migrating to the active fullscreen Space.
-    func reassertSpaceMembership() {
-        collectionBehavior = Self.overlayCollectionBehavior
-    }
-
     /// AppKit nudges windows back on screen by default. The ring must stay centered on the
     /// cursor even at a screen edge, or the drawn wedges stop matching the drag geometry.
     override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
@@ -41,7 +34,10 @@ final class OverlayPanel: NSPanel {
         // not enough. .canJoinAllSpaces still covers native fullscreen (its own Space).
         level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()))
         collectionBehavior = Self.overlayCollectionBehavior
-        isFloatingPanel = true
+        // Do NOT set `isFloatingPanel = true`: it resets `level` back to .floating (CG layer 3),
+        // which composites BEHIND an app whose native-fullscreen window sits at a higher layer
+        // (iTerm2 at ~25), hiding the overlay behind fullscreen. Keeping the explicit
+        // CGShieldingWindowLevel — not Space membership — is what floats it over fullscreen, like CleanShot.
         hidesOnDeactivate = false
         isOpaque = false
         backgroundColor = .clear

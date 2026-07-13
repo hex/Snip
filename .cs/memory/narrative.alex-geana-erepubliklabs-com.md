@@ -759,3 +759,27 @@ over another app's native-fullscreen Space (private CGS/SkyLight CGSAddWindowsTo
 CleanShot X does it, it was at shielding level and DID show). Deliverable: minimal diff to
 OverlayPanel/OverlayPanelController + proof screenshot. The reassert commit (4173ddf) stays for now;
 reconcile once Fable returns the measured fix.
+
+
+## 2026-07-13 (cont.): FULLSCREEN ROOT CAUSE FOUND + FIXED (isFloatingPanel clobbered level)
+
+Fable (measured, CG-layer readback + A/B screenshots): the bug was `isFloatingPanel = true` in
+OverlayPanel.init, set AFTER `level = CGShieldingWindowLevel`. Setting isFloatingPanel SILENTLY
+resets the window level to .floating (CG layer 3). So the panel actually composited at layer 3, far
+below iTerm2's native-fullscreen window at CG layer 25, and rendered BEHIND it. My "above
+everything" comment was a lie the runtime never honored. Space membership was ALWAYS correct
+(every config isOnActiveSpace=true), which is why the reassert one-liner (re-setting
+collectionBehavior) did nothing. CleanShot works because it genuinely sits at shielding level.
+Measured layer readback: shipped order -> 3 (behind); no isFloatingPanel -> 2147483628 (in front);
+reorder -> 2147483628 (in front). Proof shots comp2_ship_order.png (green, hidden) vs
+comp2_ship_nofloat.png (magenta over green), comp_base.png (bug over real iTerm).
+
+Fix (Fable applied to OverlayPanel.swift): removed the `isFloatingPanel = true` line + guard
+comment. I removed my now-dead `reassertSpaceMembership()` method and its call in
+OverlayPanelController.show() (built on the wrong theory; Space membership was never broken). Kept
+the CGShieldingWindowLevel (that is the real fix, it just needed isFloatingPanel gone to survive)
+and the overlayCollectionBehavior constant. Builds, runs (pid 29119).
+
+Confidence: root cause + fix VERY HIGH (measured). Real-app end-to-end not yet exercised in the
+built Snip. NEXT: Alex holds middle-mouse over REAL iTerm2 native fullscreen to confirm the ring now
+floats on top.
