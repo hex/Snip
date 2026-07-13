@@ -11,6 +11,9 @@ struct IgnoredApp: Codable, Identifiable, Equatable {
     var id: String { bundleID }
 }
 
+/// Which pane the single Snip window shows. Transient UI state, not persisted.
+enum MainTab: Hashable { case snippets, trigger, exceptions }
+
 @Observable
 final class AppModel {
     private static let triggerConfigKey = "triggerConfig"
@@ -28,6 +31,8 @@ final class AppModel {
     /// Set by the empty-wedge flow so the library window jumps straight to editing a new snippet.
     /// Transient (not persisted).
     var pendingEditSnippetID: Snippet.ID?
+    /// The pane shown in the single window; set by the menu items. Transient (not persisted).
+    var mainTab: MainTab = .snippets
     private let store: SnippetStore
 
     init() {

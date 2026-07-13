@@ -9,20 +9,15 @@ struct LibraryView: View {
     @FocusState private var labelFocused: Bool
 
     var body: some View {
-        ZStack {
-            HUDBackground()
-            HSplitView {
-                RingEditorView(model: model,
-                               selection: $selection,
-                               onAddToSlot: addToSlot,
-                               onAddUnpinned: addUnpinned,
-                               onDelete: deleteSelected)
-                    .frame(minWidth: 320, idealWidth: 340, maxWidth: 380)
-                detail
-            }
+        HSplitView {
+            RingEditorView(model: model,
+                           selection: $selection,
+                           onAddToSlot: addToSlot,
+                           onAddUnpinned: addUnpinned,
+                           onDelete: deleteSelected)
+                .frame(minWidth: 320, idealWidth: 340, maxWidth: 380)
+            detail
         }
-        .frame(minWidth: 780, minHeight: 520)
-        .preferredColorScheme(.dark)
         .onAppear { consumePendingEdit(); purgeEmptyDrafts() }
         .onChange(of: model.pendingEditSnippetID) { _, _ in consumePendingEdit() }
         .onChange(of: selection) { _, _ in purgeEmptyDrafts() }

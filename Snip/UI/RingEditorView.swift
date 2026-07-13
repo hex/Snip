@@ -16,7 +16,7 @@ struct RingEditorView: View {
     var body: some View {
         VStack(spacing: 0) {
             RingBoard(model: model, selection: $selection, onAddToSlot: onAddToSlot)
-                .padding(.top, 34)   // clear the floating traffic lights
+                .padding(.top, 16)
                 .padding(.bottom, 16)
             Divider().overlay(HUD.hairline)
             tray

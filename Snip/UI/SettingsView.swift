@@ -1,19 +1,14 @@
-// ABOUTME: SwiftUI settings for how the radial menu is triggered and where it is suppressed.
-// ABOUTME: Tabbed (Trigger / Exceptions); changes persist through AppModel and restart the tap.
+// ABOUTME: The Trigger and Exceptions settings panes, shown as tabs in the single Snip window.
+// ABOUTME: Changes persist through AppModel and restart the tap via onConfigChanged.
 import SwiftUI
 import AppKit
 import CoreGraphics
 import UniformTypeIdentifiers
 import SnipKit
 
-/// A pickable running app for the suppress list.
-private struct RunningApp: Identifiable {
-    let id: String   // bundle identifier
-    let name: String
-    let icon: NSImage
-}
+// MARK: - Trigger
 
-struct SettingsView: View {
+struct TriggerSettingsView: View {
     @Bindable var model: AppModel
     var onConfigChanged: () -> Void
     /// Pauses/resumes the event tap so a bound key/button reaches the recorder instead of the ring.
@@ -21,20 +16,6 @@ struct SettingsView: View {
 
     @State private var isRecordingShortcut = false
     @State private var shortcutMonitor: Any?
-
-    var body: some View {
-        TabView {
-            triggerTab
-                .tabItem { Label("Trigger", systemImage: "cursorarrow.click") }
-            exceptionsTab
-                .tabItem { Label("Exceptions", systemImage: "hand.raised") }
-        }
-        .frame(width: 480, height: 340)
-        .onChange(of: model.triggerConfig) { _, _ in onConfigChanged() }
-        .onDisappear { if isRecordingShortcut { cancelRecording() } }
-    }
-
-    // MARK: - Trigger
 
     /// The two ways to arm the trigger. A key or a mouse button can be held; only a mouse button can
     /// be double-clicked (with its second press held).
@@ -49,7 +30,7 @@ struct SettingsView: View {
         return .hold
     }
 
-    private var triggerTab: some View {
+    var body: some View {
         Form {
             Section {
                 Picker("Gesture", selection: gestureBinding) {
@@ -74,6 +55,8 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .onChange(of: model.triggerConfig) { _, _ in onConfigChanged() }
+        .onDisappear { if isRecordingShortcut { cancelRecording() } }
     }
 
     private var recordingPrompt: String {
@@ -140,7 +123,7 @@ struct SettingsView: View {
             : [.keyDown, .otherMouseDown]
         shortcutMonitor = NSEvent.addLocalMonitorForEvents(matching: mask) { event in
             recordTrigger(from: event)
-            return nil   // swallow the captured input so it doesn't act on Settings
+            return nil   // swallow the captured input so it doesn't act on the window
         }
     }
 
@@ -194,10 +177,22 @@ struct SettingsView: View {
         default: return characters?.uppercased() ?? "Key \(keyCode)"
         }
     }
+}
 
-    // MARK: - Exceptions
+// MARK: - Exceptions
 
-    private var exceptionsTab: some View {
+/// A pickable running app for the suppress list.
+private struct RunningApp: Identifiable {
+    let id: String   // bundle identifier
+    let name: String
+    let icon: NSImage
+}
+
+struct ExceptionsSettingsView: View {
+    @Bindable var model: AppModel
+    var onConfigChanged: () -> Void
+
+    var body: some View {
         Form {
             Section {
                 if model.ignoredApps.isEmpty {
@@ -246,8 +241,6 @@ struct SettingsView: View {
         .menuStyle(.button)
         .fixedSize()
     }
-
-    // MARK: - Data
 
     /// Regular (Dock-showing) apps, minus Snip itself and ones already suppressed.
     private var runningApps: [RunningApp] {

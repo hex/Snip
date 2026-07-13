@@ -10,8 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var overlay: OverlayPanelController!
     private var engine: EventTapEngine!
     private let paster = PasteEngine()
-    private var libraryWindow: NSWindow?
-    private var settingsWindow: NSWindow?
+    private var mainWindow: NSWindow?
     private var onboardingWindow: NSWindow?
     let model = AppModel()
 
@@ -74,47 +73,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.save()
     }
 
-    @objc private func openLibrary() {
-        if libraryWindow == nil {
-            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 820, height: 560),
+    // The menu's "Snippets…" and "Settings…" both open the one window, on the matching tab.
+    @objc private func openLibrary() { openMainWindow(tab: .snippets) }
+    @objc private func openSettings() { openMainWindow(tab: .trigger) }
+
+    private func openMainWindow(tab: MainTab) {
+        if mainWindow == nil {
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 860, height: 600),
                                   styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                                   backing: .buffered, defer: false)
-            window.title = "Snippets"
+            window.title = "Snip"
             // A dark, frosted HUD like the overlay: transparent titlebar, content edge to edge.
             window.titlebarAppearsTransparent = true
             window.titleVisibility = .hidden
             window.appearance = NSAppearance(named: .darkAqua)
             window.isOpaque = false
             window.backgroundColor = .clear
-            window.contentView = NSHostingView(rootView: LibraryView(model: model))
+            window.contentView = NSHostingView(rootView: MainWindowView(
+                model: model,
+                onConfigChanged: { [weak self] in self?.restartEventTap() },
+                onRecordingChange: { [weak self] recording in self?.engine?.setPaused(recording) }))
             window.isReleasedWhenClosed = false
-            window.center()
-            libraryWindow = window
-        }
-        // Unlike the overlay, this window is meant to take focus.
-        NSApp.activate(ignoringOtherApps: true)
-        libraryWindow?.makeKeyAndOrderFront(nil)
-    }
-
-    @objc private func openSettings() {
-        if settingsWindow == nil {
-            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 360),
-                                  styleMask: [.titled, .closable],
-                                  backing: .buffered, defer: false)
-            window.title = "Snip Settings"
-            window.contentView = NSHostingView(
-                rootView: SettingsView(
-                    model: model,
-                    onConfigChanged: { [weak self] in self?.restartEventTap() },
-                    onRecordingChange: { [weak self] recording in self?.engine?.setPaused(recording) }))
-            window.isReleasedWhenClosed = false
-            // Resume the tap if Settings is closed mid-recording, so a paused tap can't get stranded.
+            // Resume the tap if the window closes mid-recording, so a paused tap can't get stranded.
             window.delegate = self
             window.center()
-            settingsWindow = window
+            mainWindow = window
         }
+        model.mainTab = tab
+        // Unlike the overlay, this window is meant to take focus.
         NSApp.activate(ignoringOtherApps: true)
-        settingsWindow?.makeKeyAndOrderFront(nil)
+        mainWindow?.makeKeyAndOrderFront(nil)
     }
 
     /// The tap's event mask and trigger rules are fixed at creation, so a config change rebuilds it.
@@ -160,10 +148,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 
 extension AppDelegate: NSWindowDelegate {
-    /// Only the Settings window sets us as its delegate. If it closes mid-recording, the tap was left
+    /// Only the main window sets us as its delegate. If it closes mid-recording, the tap was left
     /// paused; resume it so the trigger keeps working. Resuming an already-live tap is a no-op.
     func windowWillClose(_ notification: Notification) {
-        guard notification.object as? NSWindow === settingsWindow else { return }
+        guard notification.object as? NSWindow === mainWindow else { return }
         engine?.setPaused(false)
     }
 }

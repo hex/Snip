@@ -1081,3 +1081,18 @@ upper-right wedge lit white with a soft bloom + center dot, near-black with subt
 glassy depth. Finalized: snip-icon.png = ig-1 squircled (824 in 1024, 100 margin,
 185 radius), re-sliced the appiconset, built, verified the icns at 256px. The
 squircle.swift + mono.swift helpers live in the session scratchpad (not committed).
+
+## 2026-07-13: Merge Settings + Snippets into one window
+
+Alex: don't want two windows (Settings + Snippets), just one. Merged into a single
+MainWindowView with a centered segmented switcher (Snippets / Trigger / Exceptions)
+bound to a new transient AppModel.mainTab. The frosted dark HUD + dark scheme + frame
+moved OUT of LibraryView up into MainWindowView, so LibraryView is now just a pane
+(HSplitView + its onAppear/onChange). SettingsView split into standalone
+TriggerSettingsView + ExceptionsSettingsView. AppDelegate now owns one mainWindow
+(fullSizeContentView frosted, non-opaque for the ring's behindWindow vibrancy); the
+menu's "Snippets…" opens it on .snippets, "Settings…" on .trigger; windowWillClose
+resumes a paused tap. Custom segmented top bar (height 46, centered) instead of a
+native TabView so the tab bar doesn't jam the traffic lights on the frameless window;
+content switches via a plain switch (transient state resets on tab change, acceptable).
+Ring top padding 34->16 (top bar now clears the lights). Verified all 3 tabs render.
