@@ -879,3 +879,16 @@ mouseMoved; watchdog uses keyState for hotkey; Settings gets a shortcut recorder
 
 Tree clean at 2309e49 before the workflow, so a bad result reverts with `git checkout .`. Waiting
 for the workflow completion notification; then review the diff, build, hand to Alex.
+
+
+## 2026-07-13 (cont.): keyboard trigger DONE (workflow); queue deferred; compact pending
+
+Workflow wf_4a31d503-ec5 completed. Sonnet 5 implemented the hold-a-hotkey trigger (3 files, green);
+Opus 4.8 adversarially reviewed and FIXED a real key-leak (autorepeat swallow must match keycode-only
+like the release, or a held key leaks after releasing modifiers). Verified: only the 3 files changed,
+BUILD SUCCEEDED, app runs (pid 23445). Committed 41bc24f. Default hold Option+Space, rebindable in
+Settings > Trigger via a recorder. Known minor (Opus flagged, not fixed): recorder NSEvent monitor
+not torn down if you click Record then never press a key.
+Deferred the queued walk-away task (`cs -queue defer`) to stop the nag loop. Context ~92%; told Alex
+to run /compact. After compact: hear Alex's Option+Space test, optionally fix the recorder-monitor
+cleanup, and pick up the deferred task.
