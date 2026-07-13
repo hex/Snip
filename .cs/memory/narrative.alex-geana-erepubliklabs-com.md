@@ -791,3 +791,17 @@ Alex: "it floats over." The ring now floats over real iTerm2 native fullscreen. 
 verified end-to-end in the built app. Every open thread is closed: core flow, lens (magnify +
 barrel), motion, fullscreen, per-app ignore + running-apps picker, tabbed settings, repo-integrity.
 App runs (pid 29119), 25 SnipKit tests green, working tree clean. README outcome filled.
+
+
+## 2026-07-13 (cont.): empty wedge -> create-and-edit flow
+
+Alex: "when clicking on an empty ring it should take me to the input phase." Wired it: firing an
+empty wedge now creates a blank snippet pinned to that slot and opens the library editor focused on
+the label field for immediate typing, instead of doing nothing.
+- AppModel: `createSnippet(inSlot:)` (blank snippet, assigns slot) + transient `pendingEditSnippetID`.
+- AppDelegate.fire: empty wedge -> `pendingEditSnippetID = createSnippet(inSlot: index)` + openLibrary().
+- LibraryView: `@FocusState labelFocused`; onAppear + onChange(pendingEditSnippetID) consume it
+  (select the snippet, focus the label field via async).
+Builds, runs (pid 25585). Minor known edge: a created-but-unlabeled snippet shows a blank wedge (not
+"+"), since the slot is now occupied; acceptable, could fall back to a placeholder later.
+BLOCKED on Alex: fire an empty wedge, confirm the editor opens focused for typing.

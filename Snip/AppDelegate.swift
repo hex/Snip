@@ -131,8 +131,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func fire(_ selection: RadialSelection) {
-        guard case let .wedge(index) = selection, let snippet = model.snippet(inSlot: index) else { return }
-        paster.insert(snippet)
+        guard case let .wedge(index) = selection else { return }
+        if let snippet = model.snippet(inSlot: index) {
+            paster.insert(snippet)
+        } else {
+            // Empty wedge: create a snippet for that position and jump straight to editing it.
+            model.pendingEditSnippetID = model.createSnippet(inSlot: index)
+            openLibrary()
+        }
     }
 
     @objc private func grantAccessibility() {

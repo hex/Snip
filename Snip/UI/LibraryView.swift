@@ -6,6 +6,7 @@ import SnipKit
 struct LibraryView: View {
     @Bindable var model: AppModel
     @State private var selection: Snippet.ID?
+    @FocusState private var labelFocused: Bool
 
     /// Wedge 0 points up; indices increase clockwise. Naming them beats "Slot 3".
     private static let slotNames = [
@@ -43,6 +44,17 @@ struct LibraryView: View {
             }
         }
         .frame(minWidth: 680, minHeight: 440)
+        .onAppear { consumePendingEdit() }
+        .onChange(of: model.pendingEditSnippetID) { _, _ in consumePendingEdit() }
+    }
+
+    /// Firing an empty wedge creates a snippet and asks the library to jump straight to editing it.
+    private func consumePendingEdit() {
+        guard let id = model.pendingEditSnippetID else { return }
+        selection = id
+        model.pendingEditSnippetID = nil
+        // After the editor renders for the new selection, drop the caret into the label.
+        DispatchQueue.main.async { labelFocused = true }
     }
 
     private var selectedIndex: Int? {
@@ -56,6 +68,7 @@ struct LibraryView: View {
         Form {
             Section {
                 TextField("Label", text: $model.library.snippets[index].label)
+                    .focused($labelFocused)
                     .onSubmit { model.save() }
 
                 Picker("Ring position", selection: slotBinding(for: snippet.id)) {

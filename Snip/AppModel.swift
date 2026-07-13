@@ -25,6 +25,9 @@ final class AppModel {
         didSet { persistIgnoredApps() }
     }
     var ignoredBundleIDs: Set<String> { Set(ignoredApps.map(\.bundleID)) }
+    /// Set by the empty-wedge flow so the library window jumps straight to editing a new snippet.
+    /// Transient (not persisted).
+    var pendingEditSnippetID: Snippet.ID?
     private let store: SnippetStore
 
     init() {
@@ -65,6 +68,16 @@ final class AppModel {
     func setSlot(_ slot: Int?, for id: Snippet.ID) {
         library.assign(slot: slot, to: id)   // enforces one snippet per slot
         save()
+    }
+
+    /// Creates a blank snippet pinned to `slot` and returns its id, for the fire-an-empty-wedge flow.
+    @discardableResult
+    func createSnippet(inSlot slot: Int?) -> Snippet.ID {
+        let snippet = Snippet(label: "", body: "")
+        library.snippets.append(snippet)
+        if let slot { library.assign(slot: slot, to: snippet.id) }
+        save()
+        return snippet.id
     }
 
     func save() {
