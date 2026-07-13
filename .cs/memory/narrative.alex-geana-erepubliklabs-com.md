@@ -734,3 +734,28 @@ NOT verified (Mac locked). Alex's own test (hold middle-mouse over iTerm native 
 verification; if it fails, run scratchpad/measure.sh for the definitive winner and apply that
 config. Level fix (CGShieldingWindowLevel) stays but evidence showed level was never the issue
 (iTerm at layer 25); it is harmless.
+
+
+## 2026-07-13: ran measure.sh: reframed the fullscreen bug with real data
+
+Mac unlocked. Ran scratchpad/measure.sh (7-config matrix over an iTerm2 native-fullscreen window on
+the EXTERNAL display). Reassert did NOT fix it (Alex confirmed; matrix agrees). Real findings:
+- ALL 7 configs report isOnActiveSpace=true AND CGWindowList onscreen=true, incl. `shipped`. So the
+  panel DOES join the fullscreen Space in every config. Space membership / collectionBehavior was
+  never the differentiator. The 7 easy hypotheses are dead.
+- BUT the magenta pixel check is BROKEN: the fullscreen display is the external one at Cocoa
+  (-203,1169,3840,1620) @2x (negative origin, Retina). The probe samples at (3840,1620) = the
+  display's far corner, reading wallpaper, while the panel is at Cocoa origin (1557,1819). So every
+  FAIL is a mis-sampled measurement, not proof of invisibility. screencapture DOES have permission.
+- The one pixel-free signal that IS real: `occlusionVisible=false` (occlusionState lacks .visible)
+  for shipped, despite panel level = CGShieldingWindowLevel (far above iTerm's layer 25). So the
+  WindowServer composites the panel as NOT visible / behind the native-fullscreen window even though
+  it joined the Space. Consistent with Alex seeing nothing.
+
+Resumed Fable (agent a84c8b10a54ab62a5, background) with this data to: (A) fix the probe's
+Cocoa->screenshot-pixel math for the negative-origin @2x external display and re-measure validly;
+(B) if still failing, find the real mechanism to composite a non-activating accessory panel VISIBLY
+over another app's native-fullscreen Space (private CGS/SkyLight CGSAddWindowsToSpaces, or how
+CleanShot X does it, it was at shielding level and DID show). Deliverable: minimal diff to
+OverlayPanel/OverlayPanelController + proof screenshot. The reassert commit (4173ddf) stays for now;
+reconcile once Fable returns the measured fix.
