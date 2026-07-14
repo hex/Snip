@@ -213,10 +213,12 @@ struct RadialMenuView: View {
             SpokesShape(wedgeCount: 8, innerRadiusFraction: Self.hubFraction)
                 .stroke(.white.opacity(0.14), lineWidth: 1)
 
-            // The lit bearing: the active wedge reads as backlit, matching the window's dial.
+            // The lit bearing: the active wedge reads as backlit, matching the window's dial. The
+            // wash is a touch stronger than the window's (0.12): the overlay floats over arbitrary
+            // busy content, so the selection needs to read faster while staying backlit, not filled.
             if let index = litIndex {
                 WedgeShape(index: index, wedgeCount: 8, innerRadiusFraction: Self.hubFraction)
-                    .fill(HUD.signal.opacity(0.12))
+                    .fill(HUD.signal.opacity(0.20))
                 WedgeBoundarySpokes(index: index, wedgeCount: 8, innerRadiusFraction: Self.hubFraction)
                     .stroke(HUD.signal.opacity(0.5), lineWidth: 1)
                 WedgeInnerArc(index: index, wedgeCount: 8, innerRadiusFraction: Self.hubFraction)
