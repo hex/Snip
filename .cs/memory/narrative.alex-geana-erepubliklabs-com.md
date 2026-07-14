@@ -1327,3 +1327,10 @@ gives. So there are deliberately TWO dial geometries now: menuBarDialImage()
 (AppKit template, 18px, for the menu bar) and RingBoard.makersMark (SwiftUI Canvas
 hairlines, 56px, for the hub). Different rendering contexts, different tools;
 do not try to re-unify them. Full run is now 8 commits ending ef9b810.
+
+2026-07-14: Alex flagged the status menu "Grant Accessibility..." as outdated. It
+was added unconditionally, so it lingered after the one-time grant (tapping it only
+re-opens the a11y pane). Made AppDelegate the menu's NSMenuDelegate and hide the
+item + its divider in menuNeedsUpdate when permissions.isTrusted (AXIsProcessTrusted),
+re-checked per open so it returns if revoked / on a fresh install. Verified: menu is
+now Snippets / Settings / Quit. Commit f6f96c4 (9th of the run).
