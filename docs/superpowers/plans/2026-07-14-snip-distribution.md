@@ -741,13 +741,9 @@ curl -s "https://raw.githubusercontent.com/hex/homebrew-tap/master/Casks/snip.rb
 - The release is reversible up to step 9. After step 10, it's public.
 ````
 
-- [ ] **Step 2: Commit**
+- [ ] **Step 2: Do NOT commit — local-only, like Stash**
 
-```bash
-git add .claude/commands/release.md
-git commit -m "feat: /release command (signed, notarized, appcast + tap)"
-git status --short
-```
+The command embeds App Store Connect account identifiers (notary key-id, issuer UUID) and the Developer ID cert name. Stash's public-visibility prep gitignored all of `.claude/` so its `/release` lives on disk, never in the public repo. Match that: the file stays on disk (created via Write, fully functional), and Task 6 gitignores `.claude/` wholesale. Nothing to commit here.
 
 ---
 
@@ -764,9 +760,9 @@ Replace the current narrow entries (`.cs/local/`, `.cs/archives/`, `.cs/.narrati
 ```
 # Development session artifacts
 .cs/
+.claude/
 CLAUDE.md
 AGENTS.md
-.claude/settings.local.json
 
 # Secrets and credentials
 *.key
@@ -780,7 +776,7 @@ AGENTS.md
 Snip-*.zip
 ```
 
-(keep every other existing section: transient files, build artifacts, generated `Snip/Info.plist` + `Snip/Snip.entitlements` + `Snip.xcodeproj/`, OS files, editor config. NOTE: `.claude/` itself stays tracked — it now carries `commands/release.md`; only `settings.local.json` is ignored.)
+(keep every other existing section: transient files, build artifacts, generated `Snip/Info.plist` + `Snip/Snip.entitlements` + `Snip.xcodeproj/`, OS files, editor config. `.claude/` is ignored wholesale — matching Stash, so the `/release` command and its embedded ASC account identifiers stay on disk, out of the public repo.)
 
 - [ ] **Step 2: Untrack session files**
 
