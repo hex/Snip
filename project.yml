@@ -7,6 +7,9 @@ options:
 packages:
   SnipKit:
     path: SnipKit
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: "2.6.0"
 targets:
   Snip:
     type: application
@@ -15,6 +18,7 @@ targets:
       - path: Snip
     dependencies:
       - package: SnipKit
+      - package: Sparkle
     info:
       path: Snip/Info.plist
       properties:
@@ -22,7 +26,11 @@ targets:
         CFBundleName: Snip
         CFBundleDisplayName: Snip
         CFBundleIconName: AppIcon
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         NSHumanReadableCopyright: ""
+        SUFeedURL: https://raw.githubusercontent.com/hex/Snip/main/appcast.xml
+        SUPublicEDKey: AvfZk+goO2PNLNs69+o7SfePAMl/w5PLLO+TZ69IKVI=
     entitlements:
       path: Snip/Snip.entitlements
       properties:
