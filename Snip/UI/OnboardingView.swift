@@ -1,6 +1,7 @@
 // ABOUTME: First-run window explaining and requesting the Accessibility permission.
 // ABOUTME: Polls trust once a second so the tap can start without making the user relaunch.
 import SwiftUI
+import AppKit
 
 struct OnboardingView: View {
     let isTrusted: () -> Bool
@@ -12,9 +13,9 @@ struct OnboardingView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Image(systemName: "text.insert")
-                .font(.system(size: 40))
-                .foregroundStyle(.tint)
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .frame(width: 72, height: 72)
 
             Text("Snip needs Accessibility access")
                 .font(.title2).bold()
