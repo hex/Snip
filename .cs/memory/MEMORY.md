@@ -1,7 +1,0 @@
-- [Session narrative — alex-geana-erepubliklabs-com (lab notebook)](narrative.alex-geana-erepubliklabs-com.md): looser-bar work-in-progress; read all narrative.*.md on resume
-- ["Snip" comes from Snippets](snip-name-means-snippets.md): no scissors/cutting metaphors — the app inserts text, never cuts
-- [Overlay loupe via backdrop zoom](overlay-loupe-via-backdrop-zoom.md): live magnify of content behind a transparent overlay window via a private CABackdropLayer capture group (negative zoom); CAPortalLayer does NOT magnify
-- [Verify git status after a scoped add](verify-git-status-after-scoped-add.md): a scoped `git add <paths>` can strand a sibling-dir change and break the committed tree
-- ["Claude Design" is a real feature](reference_claude-design-feature.md): claude.ai/design design-system projects via the DesignSync tool, gated by `/design consent`; when Alex says "use claude design" he means this, not an improvised process
-- [Snip build gotchas](project_snip-build-gotchas.md): deployment target is macOS 14.0 (26.5 SDK), so 15.0+ APIs fail to compile; SourceKit's SnipKit/HUD errors are phantom, xcodebuild is the truth
-- [Snip repo location](reference_snip-repo.md): github.com/hex/Snip (private); work lives on branch design/snip-brainstorm, not main

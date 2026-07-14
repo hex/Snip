@@ -3,17 +3,22 @@
 *.tmp
 *.bak
 
-# Per-actor local state (never shared)
-.cs/local/
+# Development session artifacts
+.cs/
+.claude/
+CLAUDE.md
+AGENTS.md
 
-# Session archives (large binaries)
-.cs/archives/
+# Secrets and credentials
+*.key
+*.pem
+*.p12
+*.p8
+*.cer
+.env
 
-# Session cooldown markers
-.cs/.narrative-reminder-cooldown
-
-# Claude Code local settings (recreated by cs on each machine)
-.claude/settings.local.json
+# Release artifacts
+Snip-*.zip
 
 # Swift / Xcode build artifacts
 .build/
