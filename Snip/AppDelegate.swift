@@ -4,6 +4,42 @@ import AppKit
 import SwiftUI
 import SnipKit
 
+/// The menu-bar mark: a minimal monochrome echo of the app's segmented dial — a stroked outer ring,
+/// eight wedge spokes, and a hub dot. A template image, so the menu bar tints it for light and dark and
+/// for selection the way a system status item does.
+func menuBarDialImage() -> NSImage {
+    let image = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { rect in
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let outer: CGFloat = 8
+        let inner: CGFloat = 3.6
+        NSColor.black.set()
+
+        let ring = NSBezierPath(ovalIn: NSRect(x: center.x - outer, y: center.y - outer,
+                                               width: outer * 2, height: outer * 2))
+        ring.lineWidth = 1.2
+        ring.stroke()
+
+        // Wedge boundaries: eight spokes, offset 22.5° from vertical so the top is a wedge center (the
+        // lit slot), matching the ring in the app.
+        let spokes = NSBezierPath()
+        spokes.lineWidth = 0.9
+        for step in 0..<8 {
+            let angle = Double.pi / 8 + Double(step) * (Double.pi / 4)
+            let dx = CGFloat(cos(angle)), dy = CGFloat(sin(angle))
+            spokes.move(to: CGPoint(x: center.x + dx * inner, y: center.y + dy * inner))
+            spokes.line(to: CGPoint(x: center.x + dx * outer, y: center.y + dy * outer))
+        }
+        spokes.stroke()
+
+        let hub: CGFloat = 1.7
+        NSBezierPath(ovalIn: NSRect(x: center.x - hub, y: center.y - hub,
+                                    width: hub * 2, height: hub * 2)).fill()
+        return true
+    }
+    image.isTemplate = true
+    return image
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private let permissions = PermissionsCoordinator()
@@ -19,13 +55,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         overlay = OverlayPanelController(model: model)   // prewarms the panel + SwiftUI graph
         startEventTap()
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        // "Snip" is short for Snippets: the app inserts text, it never cuts. Hence text.insert.
-        // A misspelled symbol name yields nil, which would leave an invisible status item.
-        if let icon = NSImage(systemSymbolName: "text.insert", accessibilityDescription: "Snip") {
-            statusItem.button?.image = icon
-        } else {
-            statusItem.button?.title = "Snip"
-        }
+        statusItem.button?.image = menuBarDialImage()
+        statusItem.button?.image?.accessibilityDescription = "Snip"
 
         let menu = NSMenu()
         menu.addItem(withTitle: "Snippets…", action: #selector(openLibrary), keyEquivalent: "")
