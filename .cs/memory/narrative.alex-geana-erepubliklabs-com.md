@@ -1120,3 +1120,102 @@ top spacer in the sidebar clears the floating traffic lights. Window widened
 780->940 for sidebar(176) + ring pane + editor; editor minWidth 420->360 to fit.
 Menu "Settings…" still opens on the Trigger tab and the sidebar reflects it.
 Verified Snippets + Trigger panes render cleanly; much more native one-window feel.
+
+## 2026-07-14: "Use Claude design", mockup-first visual language pass
+
+Alex: "maybe it's time to use claude design". Open ended, so I confirmed via
+AskUserQuestion. Alex chose approach = mockup-first (explore HTML/CSS directions,
+pick one, then port to SwiftUI), scope = main window PLUS a unified visual language
+(applies to window and overlay). My honest read given to Alex: overlay + ring already
+read strong (leave them), main window is the weak surface (flat gradient ground,
+generic sidebar rows, empty right editor pane), icon is settled (leave it).
+
+Method chosen (and why): render the SAME main-window layout three ways and vary only
+the skin, so Alex compares look not arrangement (one variable). Ran a Workflow design
+panel: 5 independent lenses each returning a full visual-language spec (schema:
+domain, colorWorld, signature, rejectedDefaults, palette tokens, typography, depth,
+ring/sidebar/emptyPane treatments, motion, risk). Lenses: precision-utility (refined
+CleanShot X), macos-materials (vibrancy/native), editorial-typographic, hardware-dial
+(ring as a machined rotary instrument, the one that most exploits Snip's radial
+metaphor), swiss-minimal. Baked the interface-design skill discipline into each brief
+(name the domain, the signature, the rejected defaults). Constraint pushed to the
+panel: effects must port to SwiftUI (gradients/blurs/NSVisualEffect/SF type), no
+CSS-only tricks. Next: curate the 3 strongest+most-distinct specs into one interactive
+comparison Artifact (real seeded content: SIG@0, DATE@1, HI@5), Alex picks, I port.
+Workflow run id wf_26f8c79f-5db.
+
+Panel returned 5: FASCIA (milled faceplate, amber pilot lamp), Compositor
+(editorial serif specimen book, rubric red), Detent (dark anodized dial, azure
+backlit index), Register (Swiss draughting, degrees, one red), Meniscus (Liquid
+Glass, meniscus loupe hub). FASCIA and Detent both went machined-instrument, so I
+curated to 3 distinct: Detent, Meniscus, Register (dropped FASCIA as a Detent
+sibling, Compositor as the riskiest for a 200ms utility). Built one interactive
+comparison HTML (scratchpad/snip-design-lab.html, hash routes like #detent,empty),
+verified all skins headless via Chrome (extension was not connected, used the
+Google Chrome app headless). Published as an Artifact. Alex picked DETENT.
+
+Ported Detent to SwiftUI, scoped to the main window (left the working overlay
+untouched, offered to harmonize it next). Changes:
+- HUDTheme.swift: Detent ramp (well/ground/plate=chamber/field/raised/ridge),
+  added ridge/bevel/seamDark tokens, signal changed from Color.accentColor to a
+  FIXED azure 0x45A6F0 plus signalCore 0xA6D8FF. HUDBackground gradient 12151B to
+  0A0C0F. Flagged the fixed accent to Alex (one line to revert to system).
+- RadialMenuView.swift: added shared shapes WedgeInnerArc + WedgeBoundarySpokes
+  (frame relative, same -90 + index*45 math as WedgeShape) for the lit bearing.
+- RingEditorView RingBoard: replaced the flat accent.opacity(0.50) selection fill
+  with the lit bearing (wash 0.12 + lit boundary spokes 0.5 + inner arc rim
+  signal 1.5 + signalCore 0.75 + blur glow). Added calibrationBezel (Canvas: 32
+  minor ticks, 8 major on boundaries). Band ridge to plate, hub 2B313C to 0F1116,
+  selected label scale 1.06 (was 1.12) + azure glow. litWedgeIndex = drag target
+  else selection. easeOut 0.12 (detents, not springs).
+- MainWindowView sidebarRow: selected = raised machined-key fill + 2px azure lit
+  index bar at leading + azure icon tint (retired the signal.opacity(0.20) pill).
+- LibraryView emptyState: replaced the sad centered state with the powered-off
+  specimen (ghost LABEL underline + ghost TEXT well with ghost lines + ghost
+  chips at 0.35, top-left NO WEDGE SELECTED cap, 3 row engraved gesture legend).
+Built (BUILD SUCCEEDED), relaunched, opened window via System Events status menu,
+captured live: empty state and (clicked filled Fable wedge via a Swift CGEvent
+click helper) the lit bearing both render correctly. Store untouched (selection
+is transient). NOT committed yet (harness rule: commit only when Alex asks).
+Follow-up offered: harmonize the overlay to Detent (lit bearing + ticks + fixed
+azure), currently still on system accent + flat fill.
+
+TURN: "did you use claude design?" Alex meant a REAL feature, not my improvised
+process. "Claude Design" = claude.ai/design design-system projects, gated behind
+/design consent (Alex ran /design consent, then "try now"). Surfaced via the
+deferred DesignSync tool (methods: list_projects, create_project, list_files,
+get_file, finalize_plan, write_files, delete_files, ...). Flow: list/read then
+finalize_plan (locks writes/deletes + localDir, permission prompt) then
+write_files (reads localPath from disk, contents never enter context). Cards are
+preview HTML with a first line comment marker for the Design System pane grouping.
+list_projects was empty, so created project "Snip" (projectId
+3740ee67-2807-4862-879f-4aa9c27e9b29). Built 4 Detent cards in
+scratchpad/snip-ds (foundations/palette.html, foundations/type.html,
+components/dial.html with the full lit-bearing masks, components/sidebar.html),
+verified headless (dial renders perfectly), finalize_plan (deletes is REQUIRED
+even if empty []) then write_files, confirmed via list_files. Snip design system
+is live on claude.ai/design. Next increment offered: editor, empty-pane, controls
+cards. NOTE for future: the /design-sync skill pairs with DesignSync for the
+proper incremental workflow (did not load it here, followed the tool doc directly).
+
+Alex then chose all three follow-ups: commit + harmonize overlay + expand design
+system. Done in order:
+1. Committed the window port: 9b0dd42 (5 Swift files).
+2. Harmonized the bloom overlay to Detent (RadialMenuView): fixed azure signal,
+   lit bearing replacing the flat accent.opacity(0.50) fill, calibrationTicks,
+   selected label 1.06 + glow. Kept the vibrancy glass, loupe hub, spring bloom.
+   Build ok, committed 3c2e494. VERIFIED LIVE by synthesizing the trigger:
+   discovered the trigger is DOUBLE-middle-click (single middle press did not
+   bloom, a double-tap-then-hold did), captured full display, cropped: overlay
+   blooms with lit bearing + ticks + working loupe. Observation flagged to Alex:
+   the lit bearing is more legible over the calm window than over the overlay's
+   arbitrary busy content, may want the overlay wash bumped ~0.12 to ~0.20 while
+   staying backlit. Left as Alex's call, not changed.
+3. Expanded the Claude Design "Snip" project to 7 cards: added components/editor,
+   components/empty-pane, components/controls (foundations/palette+type,
+   components/dial+sidebar already there). App auto-compiled _ds_manifest.json
+   from the @dsCard markers. list_files confirms all 7 plus the generated
+   _ds_bundle.js / _ds_manifest.json / _adherence.oxlintrc.json.
+Both commits on design/snip-brainstorm, not pushed. Scratchpad has the design
+lab HTML, the 7 card sources (snip-ds/), the live app + overlay screenshots, and
+the CGEvent click / overlay_shot helpers.
