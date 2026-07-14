@@ -38,16 +38,26 @@ struct MainWindowView: View {
             Image(systemName: icon)
                 .font(.system(size: 13, weight: .medium))
                 .frame(width: 20)
+                .foregroundStyle(selected ? HUD.signal : HUD.textSecondary)
             Text(title)
                 .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(selected ? HUD.textPrimary : HUD.textSecondary)
             Spacer(minLength: 0)
         }
-        .foregroundStyle(selected ? HUD.textPrimary : HUD.textSecondary)
         .padding(.horizontal, 10)
         .frame(height: 30)
-        .background(RoundedRectangle(cornerRadius: 7).fill(selected ? HUD.signal.opacity(0.20) : Color.clear))
+        // A pressed machined key, not a translucent tint fill.
+        .background(RoundedRectangle(cornerRadius: 7).fill(selected ? HUD.raised : Color.clear))
+        // The lit index bar: the instrument's selected-channel marker. Arc appears only as light.
+        .overlay(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 1)
+                .fill(HUD.signal)
+                .frame(width: 2, height: 16)
+                .opacity(selected ? 1 : 0)
+        }
         .contentShape(RoundedRectangle(cornerRadius: 7))
         .onTapGesture { model.mainTab = tab }
+        .animation(.easeOut(duration: 0.16), value: selected)
     }
 
     // MARK: - Content

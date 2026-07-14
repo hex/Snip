@@ -98,6 +98,49 @@ struct SpokesShape: Shape {
     }
 }
 
+/// The inner arc of one wedge, traced just outside the hub. Stroked, this is the "lit bearing":
+/// the selected wedge reads as backlit from behind rather than filled with flat colour.
+struct WedgeInnerArc: Shape {
+    let index: Int
+    let wedgeCount: Int
+    let innerRadiusFraction: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let outer = min(rect.width, rect.height) / 2
+        let radius = outer * innerRadiusFraction + 1.5
+        let wedge = 360.0 / Double(wedgeCount)
+        let centerAngle = -90.0 + Double(index) * wedge
+        var path = Path()
+        // Inset the arc ends a few degrees so the lit bearing never touches its boundary spokes.
+        path.addArc(center: center, radius: radius,
+                    startAngle: .degrees(centerAngle - wedge / 2 + 3),
+                    endAngle: .degrees(centerAngle + wedge / 2 - 3), clockwise: false)
+        return path
+    }
+}
+
+/// The two boundary spokes framing one wedge, lit when that wedge is the active bearing.
+struct WedgeBoundarySpokes: Shape {
+    let index: Int
+    let wedgeCount: Int
+    let innerRadiusFraction: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let outer = min(rect.width, rect.height) / 2
+        let inner = outer * innerRadiusFraction
+        let wedge = 2 * Double.pi / Double(wedgeCount)
+        let base = -Double.pi / 2 + Double(index) * wedge
+        var path = Path()
+        for edge in [base - wedge / 2, base + wedge / 2] {
+            path.move(to: CGPoint(x: center.x + inner * cos(edge), y: center.y + inner * sin(edge)))
+            path.addLine(to: CGPoint(x: center.x + outer * cos(edge), y: center.y + outer * sin(edge)))
+        }
+        return path
+    }
+}
+
 struct RadialMenuView: View {
     var model: RadialViewModel
 

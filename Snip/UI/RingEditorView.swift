@@ -118,7 +118,6 @@ private struct RingBoard: View {
     private var outerRadius: CGFloat { Self.size / 2 }
     private var hubRadius: CGFloat { outerRadius * Self.hubFraction }
     private let labelRadius: CGFloat = 90
-    private let accent = Color(nsColor: .controlAccentColor)
 
     /// The wedge currently being dragged and where its label sits (ring coordinate space).
     @State private var drag: DragState?
@@ -127,9 +126,10 @@ private struct RingBoard: View {
     var body: some View {
         ZStack {
             glassRing
-            highlightedWedge
+            calibrationBezel
             SpokesShape(wedgeCount: 8, innerRadiusFraction: Self.hubFraction)
-                .stroke(.white.opacity(0.16), lineWidth: 1)
+                .stroke(.white.opacity(0.14), lineWidth: 1)
+            litBearing
             Circle().strokeBorder(
                 LinearGradient(colors: [.white.opacity(0.38), .white.opacity(0.10)],
                                startPoint: .top, endPoint: .bottom),
@@ -139,6 +139,7 @@ private struct RingBoard: View {
             if let drag { dragGhost(drag) }
         }
         .frame(width: Self.size, height: Self.size)
+        .animation(.easeOut(duration: 0.12), value: litWedgeIndex)
         .coordinateSpace(.named("ring"))
         .dropDestination(for: String.self) { items, location in
             // A tray chip dropped onto the ring pins it to the wedge under the drop.
@@ -149,44 +150,82 @@ private struct RingBoard: View {
         }
     }
 
-    /// The wedge lit accent: the live drag target while dragging, otherwise the current selection.
-    @ViewBuilder private var highlightedWedge: some View {
-        if let drag {
-            if let target = wedge(at: drag.location) {
-                WedgeShape(index: target, wedgeCount: 8, innerRadiusFraction: Self.hubFraction)
-                    .fill(accent.opacity(0.50))
+    /// The wedge to light: the live drag target while dragging, otherwise the current selection.
+    private var litWedgeIndex: Int? {
+        if let drag { return wedge(at: drag.location) }
+        return selectedIndex
+    }
+
+    /// The lit bearing: the active wedge reads as backlit from behind rather than filled. A low azure
+    /// wash, its two boundary spokes lit, and a bright inner-arc rim with a hotter core and a soft glow.
+    @ViewBuilder private var litBearing: some View {
+        if let lit = litWedgeIndex {
+            ZStack {
+                WedgeShape(index: lit, wedgeCount: 8, innerRadiusFraction: Self.hubFraction)
+                    .fill(HUD.signal.opacity(0.12))
+                WedgeBoundarySpokes(index: lit, wedgeCount: 8, innerRadiusFraction: Self.hubFraction)
+                    .stroke(HUD.signal.opacity(0.5), lineWidth: 1)
+                WedgeInnerArc(index: lit, wedgeCount: 8, innerRadiusFraction: Self.hubFraction)
+                    .stroke(HUD.signal.opacity(0.35), lineWidth: 4).blur(radius: 4)
+                WedgeInnerArc(index: lit, wedgeCount: 8, innerRadiusFraction: Self.hubFraction)
+                    .stroke(HUD.signal, lineWidth: 1.5)
+                WedgeInnerArc(index: lit, wedgeCount: 8, innerRadiusFraction: Self.hubFraction)
+                    .stroke(HUD.signalCore, lineWidth: 0.75)
             }
-        } else if let index = selectedIndex {
-            WedgeShape(index: index, wedgeCount: 8, innerRadiusFraction: Self.hubFraction)
-                .fill(accent.opacity(0.50))
         }
     }
 
     private var glassRing: some View {
         ZStack {
+            // The dial's cast shadow: the one true shadow the ring is allowed.
             RingShape(holeFraction: Self.hubFraction)
                 .fill(.black.opacity(0.30), style: FillStyle(eoFill: true))
                 .blur(radius: 14)
                 .offset(y: 7)
 
-            // A dark glass band, consistent regardless of what sits behind the window.
+            // A brushed-metal descent: the ridge crown at the top falling to the machined plate.
             RingShape(holeFraction: Self.hubFraction)
-                .fill(LinearGradient(colors: [Color(hex: 0x2A2E37), Color(hex: 0x15171D)],
+                .fill(LinearGradient(colors: [HUD.ridge, HUD.chamber],
                                      startPoint: .top, endPoint: .bottom),
                       style: FillStyle(eoFill: true))
 
-            // Specular sheen along the top, like glass.
+            // A crisp specular bevel along the top edge, like light on a milled crown.
             RingShape(holeFraction: Self.hubFraction)
-                .fill(LinearGradient(colors: [.white.opacity(0.10), .clear],
+                .fill(LinearGradient(colors: [HUD.bevel, .clear],
                                      startPoint: .top, endPoint: .center),
                       style: FillStyle(eoFill: true))
         }
     }
 
+    /// Engraved graduations milled into the bezel: major ticks on the eight wedge boundaries, finer
+    /// minor ticks between. The signature that turns a glass menu into a calibrated instrument.
+    private var calibrationBezel: some View {
+        Canvas { ctx, size in
+            let c = CGPoint(x: size.width / 2, y: size.height / 2)
+            let outer = min(size.width, size.height) / 2
+            for i in 0..<32 {   // minor graduations every 11.25 degrees
+                let a = -Double.pi / 2 + Double(i) * (2 * Double.pi / 32)
+                var p = Path()
+                p.move(to: CGPoint(x: c.x + (outer - 5) * cos(a), y: c.y + (outer - 5) * sin(a)))
+                p.addLine(to: CGPoint(x: c.x + (outer - 1) * cos(a), y: c.y + (outer - 1) * sin(a)))
+                ctx.stroke(p, with: .color(.white.opacity(0.08)), lineWidth: 1)
+            }
+            for i in 0..<8 {    // major ticks on the wedge boundaries
+                let a = -Double.pi / 2 + (Double(i) + 0.5) * (2 * Double.pi / 8)
+                var p = Path()
+                p.move(to: CGPoint(x: c.x + (outer - 8) * cos(a), y: c.y + (outer - 8) * sin(a)))
+                p.addLine(to: CGPoint(x: c.x + (outer - 1) * cos(a), y: c.y + (outer - 1) * sin(a)))
+                ctx.stroke(p, with: .color(.white.opacity(0.18)), lineWidth: 1)
+            }
+        }
+        .frame(width: Self.size, height: Self.size)
+        .allowsHitTesting(false)
+    }
+
     /// The dark glossy hub sphere, using the same dressing as the overlay (no magnifying loupe here).
     private var hub: some View {
         ZStack {
-            Circle().fill(RadialGradient(colors: [Color(hex: 0x2B2F38), Color(hex: 0x121419)],
+            Circle().fill(RadialGradient(colors: [Color(hex: 0x2B313C), Color(hex: 0x0F1116)],
                                          center: UnitPoint(x: 0.4, y: 0.34),
                                          startRadius: 0, endRadius: hubSize * 0.62))
             GlassHubDressing(hubSize: hubSize)
@@ -216,7 +255,9 @@ private struct RingBoard: View {
                     .font(.system(size: 12, weight: text == nil ? .regular : .semibold))
                     .foregroundStyle(labelColor(isSelected: isSelected, isEmpty: text == nil))
                     .shadow(color: .black.opacity(0.55), radius: 2, y: 1)
-                    .scaleEffect(isSelected ? 1.12 : 1.0)
+                    .shadow(color: HUD.signal.opacity(isSelected ? 0.55 : 0), radius: 8)
+                    .scaleEffect(isSelected ? 1.06 : 1.0)
+                    .animation(.easeOut(duration: 0.12), value: isSelected)
                     .lineLimit(1)
                     .frame(width: 76)
             }

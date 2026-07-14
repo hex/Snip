@@ -1,27 +1,35 @@
-// ABOUTME: The Library's dark-HUD design tokens and its frosted (vibrancy) window background.
-// ABOUTME: One cool-graphite hue climbed by lightness; the system accent is the only signal color.
+// ABOUTME: The main window's dark-HUD design tokens: the "Detent" machined-instrument language.
+// ABOUTME: One cool-graphite ramp climbed by depth-of-cut; a single fixed instrument azure is the only signal.
 import SwiftUI
 import AppKit
 
-/// The Library shares the live overlay's world: a dark, frosted heads-up surface. Tokens are named
-/// for that world, not for a generic gray scale.
+/// The Detent language: the window is a dark-anodized instrument. Surfaces are depths of cut on one
+/// cool-graphite ramp, edges are machined seams, and the one signal is a fixed backlit azure, never the
+/// system accent, so Snip reads identically on every Mac.
 enum HUD {
-    static let ground = Color(hex: 0x0E1013)      // the abyss behind the vibrancy
-    static let socket = Color(hex: 0x0B0D10)      // recessed wells
-    static let chamber = Color(hex: 0x171A20)     // a resting surface / chip
-    static let field = Color(hex: 0x191D25)       // a text input surface: recessed, but not a black slab
-    static let raised = Color(hex: 0x20242C)      // hover, selected fill
+    static let well = Color(hex: 0x0A0C0F)      // deepest recess: inset wells, the pit under the dial
+    static let ground = Color(hex: 0x0E1116)    // window base plane; sidebar and content share it
+    static let socket = Color(hex: 0x0A0C0F)    // recessed wells (the same depth as `well`)
+    static let chamber = Color(hex: 0x141821)   // a resting surface / chip: the machined plate
+    static let field = Color(hex: 0x191E27)     // a text input reading well: recessed, not a black slab
+    static let raised = Color(hex: 0x212734)    // hover and selected machined-key fill
+    static let ridge = Color(hex: 0x2A313E)     // brushed crown: the ring band's top, lit control bevels
 
-    static let hairline = Color.white.opacity(0.08)   // quiet edges and dividers
-    static let emphasis = Color.white.opacity(0.16)   // a boundary that should be found
+    static let hairline = Color.white.opacity(0.09)   // the bright half of a machined seam / divider
+    static let emphasis = Color.white.opacity(0.16)   // a boundary meant to be found
+    static let seamDark = Color.black.opacity(0.40)   // the shadow half of a machined groove
+    static let bevel = Color.white.opacity(0.28)      // polished specular crown highlight
 
-    static let textPrimary = Color(hex: 0xE9ECF1)
-    static let textSecondary = Color(hex: 0x9AA1AD)
-    static let textTertiary = Color(hex: 0x646B76)
-    static let textMuted = Color(hex: 0x454B54)
+    static let textPrimary = Color(hex: 0xE9ECF1)     // etched marking: primary body
+    static let textSecondary = Color(hex: 0x9AA1AD)   // secondary labels
+    static let textTertiary = Color(hex: 0x646B76)    // calibration caps
+    static let textMuted = Color(hex: 0x454B54)       // placeholder / ghost etch
 
-    /// The single signal: selected chamber rim + glow, the active bearing, the caret. Nothing else.
-    static let signal = Color.accentColor
+    /// The single signal: the lit bearing, the sidebar index bar, the focused-field underline, the
+    /// caret. A fixed instrument azure, not `.controlAccentColor`. Rim and glow only, never a flat fill.
+    /// (To follow the system accent instead, set this to `Color.accentColor`.)
+    static let signal = Color(hex: 0x45A6F0)
+    static let signalCore = Color(hex: 0xA6D8FF)      // the hottest filament center of the lit bearing
 }
 
 extension Color {
@@ -33,12 +41,11 @@ extension Color {
     }
 }
 
-/// A solid dark gradient. The live overlay frosts against the user's screen, but this stationary
-/// window has only the desktop behind it, so a real vibrancy just samples random junk. A clean,
-/// consistent dark ground reads far more intentional.
+/// The window base plane: a dark anodized descent. A stationary window has only the desktop behind it,
+/// so real vibrancy just samples random junk, a clean milled ground reads far more intentional.
 struct HUDBackground: View {
     var body: some View {
-        LinearGradient(colors: [Color(hex: 0x191C22), Color(hex: 0x0C0E12)],
+        LinearGradient(colors: [Color(hex: 0x12151B), Color(hex: 0x0A0C0F)],
                        startPoint: .top, endPoint: .bottom)
             .ignoresSafeArea()
     }

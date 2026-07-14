@@ -43,19 +43,77 @@ struct LibraryView: View {
         }
     }
 
+    /// The panel powered off: a dimmed ghost of the real editor skeleton, so selecting a wedge reads
+    /// as the panel powering on rather than a jump cut. Anchored top-left, never centered.
     private var emptyState: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "text.insert")
-                .font(.system(size: 34, weight: .light))
-                .foregroundStyle(HUD.textMuted)
-            Text("No snippet selected")
-                .font(.system(size: 15, weight: .semibold))
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 4) {
+                fieldLabel("NO WEDGE SELECTED")
+                Text("Pick a wedge to load it here.")
+                    .font(.system(size: 15))
+                    .foregroundStyle(HUD.textSecondary)
+            }
+
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 7) {
+                    fieldLabel("LABEL")
+                    Rectangle().fill(HUD.emphasis).frame(width: 150, height: 1)
+                }
+                VStack(alignment: .leading, spacing: 8) {
+                    fieldLabel("TEXT")
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(HUD.hairline, lineWidth: 1)
+                        .frame(height: 96)
+                        .overlay(alignment: .topLeading) {
+                            VStack(alignment: .leading, spacing: 9) {
+                                ghostLine(150); ghostLine(96); ghostLine(120)
+                            }
+                            .padding(12)
+                        }
+                    HStack(spacing: 6) { ghostChip(52); ghostChip(52); ghostChip(72) }
+                }
+            }
+            .opacity(0.35)
+
+            Spacer(minLength: 0)
+
+            VStack(spacing: 1) {
+                legendRow("hand.tap", "Tap a wedge", "edit it")
+                legendRow("arrow.up.and.down.and.arrow.left.and.right", "Drag a wedge", "reorder")
+                legendRow("arrow.up.forward", "Drag off the ring", "unpin")
+            }
+        }
+        .padding(EdgeInsets(top: 34, leading: 26, bottom: 22, trailing: 26))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private func ghostLine(_ width: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: 3).fill(HUD.raised).frame(width: width, height: 8)
+    }
+
+    private func ghostChip(_ width: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: 6).strokeBorder(HUD.hairline, lineWidth: 1).frame(width: width, height: 20)
+    }
+
+    private func legendRow(_ icon: String, _ head: String, _ tail: String) -> some View {
+        HStack(spacing: 9) {
+            Image(systemName: icon)
+                .font(.system(size: 11))
+                .foregroundStyle(HUD.textTertiary)
+                .frame(width: 16)
+            Text(head)
+                .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(HUD.textSecondary)
-            Text("Tap a wedge on the ring, or add a snippet with +.")
+                .frame(width: 116, alignment: .leading)
+            Text(tail)
                 .font(.system(size: 12))
                 .foregroundStyle(HUD.textTertiary)
+            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(RoundedRectangle(cornerRadius: 6).fill(HUD.chamber))
+        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(HUD.hairline, lineWidth: 1).opacity(0.6))
     }
 
     private var selectedIndex: Int? {
