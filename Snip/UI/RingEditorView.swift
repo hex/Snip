@@ -13,9 +13,6 @@ struct RingEditorView: View {
     /// Delete the current selection.
     var onDelete: () -> Void
 
-    /// The same dial the menu bar shows, kept once and tinted faintly as a corner maker's mark.
-    private static let brandMark = menuBarDialImage()
-
     var body: some View {
         VStack(spacing: 0) {
             Spacer(minLength: 12)
@@ -87,14 +84,6 @@ struct RingEditorView: View {
                 .disabled(selection == nil)
                 .opacity(selection == nil ? 0.4 : 1)
             Spacer()
-            // A discreet maker's mark: the dial, milled faintly into the corner of the instrument.
-            Image(nsImage: Self.brandMark)
-                .renderingMode(.template)
-                .resizable()
-                .frame(width: 15, height: 15)
-                .foregroundStyle(HUD.textMuted)
-                .opacity(0.8)
-                .accessibilityHidden(true)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
@@ -130,6 +119,9 @@ private struct RingBoard: View {
     private var hubRadius: CGFloat { outerRadius * Self.hubFraction }
     private let labelRadius: CGFloat = 90
 
+    /// The dial the menu bar shows, kept once and engraved faintly onto the hub as a maker's mark.
+    private static let brandMark = menuBarDialImage()
+
     /// The wedge currently being dragged and where its label sits (ring coordinate space).
     @State private var drag: DragState?
     private struct DragState { let slot: Int; var location: CGPoint }
@@ -146,6 +138,7 @@ private struct RingBoard: View {
                                startPoint: .top, endPoint: .bottom),
                 lineWidth: 1)
             hub
+            makersMark
             ForEach(0..<8, id: \.self) { wedgePetal($0) }
             if let drag { dragGhost(drag) }
         }
@@ -242,6 +235,17 @@ private struct RingBoard: View {
             GlassHubDressing(hubSize: hubSize)
         }
         .frame(width: hubSize, height: hubSize)
+    }
+
+    /// The maker's mark: the dial engraved faintly into the hub boss, centered on the instrument.
+    private var makersMark: some View {
+        Image(nsImage: Self.brandMark)
+            .renderingMode(.template)
+            .resizable()
+            .frame(width: 30, height: 30)
+            .foregroundStyle(HUD.textSecondary)
+            .opacity(0.4)
+            .allowsHitTesting(false)
     }
 
     private var selectedIndex: Int? {
