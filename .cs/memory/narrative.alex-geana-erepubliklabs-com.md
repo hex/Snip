@@ -1216,6 +1216,100 @@ system. Done in order:
    components/dial+sidebar already there). App auto-compiled _ds_manifest.json
    from the @dsCard markers. list_files confirms all 7 plus the generated
    _ds_bundle.js / _ds_manifest.json / _adherence.oxlintrc.json.
-Both commits on design/snip-brainstorm, not pushed. Scratchpad has the design
-lab HTML, the 7 card sources (snip-ds/), the live app + overlay screenshots, and
-the CGEvent click / overlay_shot helpers.
+Then Alex chose (of wrap/push/tweak) only the tweak: bumped the OVERLAY lit
+bearing wash 0.12 to 0.20 (window stays 0.12 on its calm ground), committed
+2b9abe6. Did not re-screenshot: overlay_shot got flaky (double-tap-hold worked
+once, then a retry leaked middle-clicks that opened stray about:blank browser
+windows), and a monotonic opacity bump on an already-verified fill needs no new
+observation. Commits this chunk: 9b0dd42 (window), 3c2e494 (overlay), 1832f86
+(journal), 2b9abe6 (overlay tune). All on design/snip-brainstorm, NOT pushed.
+Wrap and push were offered and not taken. Scratchpad has the design lab HTML,
+the 7 card sources (snip-ds/), the live app + overlay screenshots, and the
+CGEvent click / overlay_shot helpers.
+
+## 2026-07-14: Reversed the fixed-azure signal to the system accent
+
+Alex: "but we need to use the system accent." That undoes the deliberate Detent
+choice of a fixed instrument azure. It is a two-token change, not one: HUD.signal
+(consumed 18 places purely via opacity/stroke/fill/shadow/tint) points at
+Color(nsColor: .controlAccentColor); HUD.signalCore (the hot filament, was a
+hardcoded light azure 0xA6D8FF) must DERIVE from the accent or it clashes on any
+non-blue accent (pink rim, blue core). Tried Color.mix(with:.white, by:0.65) but
+the DEPLOYMENT TARGET is macOS 14.0 (SDK is 26.5; -target arm64-apple-macos14.0),
+and Color.mix is 15.0+, so it failed to compile. Fell back to
+NSColor.controlAccentColor.usingColorSpace(.sRGB)?.blended(withFraction:0.65,
+of:.white), which is 10.0+. 0.65 toward white reproduces the old core's lightness
+and generalizes to any hue. signalCore is launch-resolved (static let, blend
+snapshots) so it will not track a live accent change until relaunch; acceptable
+for a 0.75pt line, YAGNI to build live tracking.
+
+Verified LIVE on a Pink-accent Mac (AppleAccentColor=6, maximally far from azure).
+Opened the main window by driving the status menu via System Events
+(menu bar item 1 of menu bar 1 -> "Snippets..."; it is an accessory app so only
+one menu bar), moved it to (120,120) off the negative-Y second display, captured
+with screencapture -R. Sidebar index bar + Snippets icon: pink. Then a single
+CGEvent click on the HI filled wedge (422,420, mapped from the 2x capture) lit the
+bearing: wash, boundary spokes, inner-arc rim all pink, hot core light-pink, zero
+blue. Commit 6-token change is HUDTheme.swift only. NOTE FOR FUTURE: the fixed
+azure lives nowhere else now; both signal tokens are accent-derived.
+
+## 2026-07-14: Settings black bar -> Detent restyle, and DS cards synced
+
+Alex asked why the Trigger tab had a "black bar" above the settings. Root cause:
+TriggerSettingsView + ExceptionsSettingsView used SwiftUI Form.formStyle(.grouped),
+whose opaque system-gray background respects the titlebar safe area. In the custom
+full-size-content HUD window (clear bg, HUDBackground gradient) the form paints its
+lighter gray below the titlebar, so the darker gradient strip above reads as a bar,
+and .padding(.top,22) widened it. The Snippets tab (custom LibraryView) had no bar,
+which is the tell. It was also why Settings looked like stock macOS, not Detent.
+Alex chose the full Detent restyle (not the quick seam fix). Replaced both Forms
+with custom VStacks over HUDBackground like LibraryView: HUD.chamber plates,
+hairline dividers, a machined-key segmented control (active segment = raised key
+with a lit accent EDGE, never a flat fill; the stock control filled it solid pink,
+which broke the one-signal rule), machined-key Record / Add Application buttons.
+Extracted FieldLabel + MachinedKeyButtonStyle into HUDTheme (LibraryView now uses
+FieldLabel too, one definition). Dropped .padding(.top,22) in MainWindowView.
+Behavior-preserving refactor: every logic method unchanged, so verification is the
+live render, not a unit test. Verified both tabs live (pink accent, no bar).
+Commit 63b4ee3.
+
+Then Alex asked "is the design system up to date?" It was NOT: 5 of 7 Claude
+Design cards hardcoded the fixed azure (#45A6F0/#A6D8FF) and palette.html even
+documented "Signal - fixed, never the system accent" (the exact opposite). Chose
+"Token + multi-accent demo". Reframed the signal as a --signal CSS var = "system
+accent (runtime)"; the core is color-mix(in srgb, var(--signal) 35%, white), the
+CSS twin of the Swift blended(withFraction:0.65,of:.white), so a static card can
+not drift from the app. palette.html: new Signal section + a 4-accent lit-bearing
+strip (blue/pink/green/graphite). dial.html: tokenized the main dial + 4 mini-dials
+(full ring markup scaled via transform:scale(.382) so mask radii stay valid;
+flex-wrap so it never clips). sidebar/editor/controls: --signal swap + note copy.
+type + empty-pane were already clean. Rendered all 5 via headless Chrome
+(color-mix and the scaled minis both render), then pushed via DesignSync
+finalize_plan -> write_files (localPath, contents never enter context) to project
+Snip 3740ee67. list_files confirms all 7 cards present. Representative sample
+accent across all cards is macOS default blue #0A82FF (was the bespoke azure).
+
+## 2026-07-14: Menu-bar dial icon + in-app maker's mark
+
+Alex sent a wordless shot of the menu-bar dropdown; the tell was the status-item
+icon being the generic text.insert SF Symbol, not the app's dial. Menu-bar items
+want a TEMPLATE image (flat monochrome, isTemplate=true so macOS tints it for
+light/dark and selection), a different asset class from the full-color AppIcon
+raster, so the dial could not just be dropped in. Drew menuBarDialImage() (top-level
+func in AppDelegate.swift so no XcodeGen regen): stroked outer ring + 8 wedge
+spokes (offset 22.5deg from vertical, top = wedge center) + hub dot at 18x18,
+isTemplate=true. Wired into statusItem.button.image. Verified in the menu bar
+(Alex's own screenshot). Reads slightly wheel-like since spokes run deep; offered
+to shorten to outer notches, left as-is for now. Commit e7ec714.
+
+Then Alex: "put the icon in the ring editor, discrete/faded, nice to have." DRY
+win: reuse the SAME template NSImage via Image(nsImage: Self.brandMark)
+.renderingMode(.template).foregroundStyle(HUD.textMuted).opacity(0.8), cached in a
+static let, placed at the trailing end of RingEditorView.bottomBar (the empty
+Spacer side, opposite the +/- buttons). One dial definition now serves the menu
+bar AND the corner mark, cannot drift. Verified live. Commit ca57068.
+
+Session commit run (design/snip-brainstorm, NOT pushed): 2b9abe6 overlay bump,
+fafa26d signal=system accent, 63b4ee3 settings Detent restyle, e7ec714 menu-bar
+dial, ca57068 maker's mark. Plus the DesignSync push (no git commit; lives in the
+claude.ai Snip project). Still open, not taken: push the branch, /wrap.
