@@ -153,8 +153,12 @@ struct RadialMenuView: View {
 
     private var hubSize: CGFloat { Self.ringSize * Self.hubFraction }
     private let labelRadius: CGFloat = 80
-    /// The user's System Settings accent. Dynamic, so it resolves against the panel's dark appearance.
-    private let accent = Color(nsColor: .controlAccentColor)
+
+    /// The wedge to light while the pointer is over one.
+    private var litIndex: Int? {
+        if case let .wedge(index) = model.selection { return index }
+        return nil
+    }
 
     // The lens irises in first, then the ring unfurls around it, so the eye gets an anchor.
     // Delays are short: the sequence should read as one quick gesture, not a slideshow.
@@ -204,13 +208,24 @@ struct RadialMenuView: View {
                                      startPoint: .top, endPoint: .center),
                       style: FillStyle(eoFill: true))
 
-            if case let .wedge(index) = model.selection {
-                WedgeShape(index: index, wedgeCount: 8, innerRadiusFraction: Self.hubFraction)
-                    .fill(accent.opacity(0.50))
-            }
+            calibrationTicks
 
             SpokesShape(wedgeCount: 8, innerRadiusFraction: Self.hubFraction)
-                .stroke(.white.opacity(0.16), lineWidth: 1)
+                .stroke(.white.opacity(0.14), lineWidth: 1)
+
+            // The lit bearing: the active wedge reads as backlit, matching the window's dial.
+            if let index = litIndex {
+                WedgeShape(index: index, wedgeCount: 8, innerRadiusFraction: Self.hubFraction)
+                    .fill(HUD.signal.opacity(0.12))
+                WedgeBoundarySpokes(index: index, wedgeCount: 8, innerRadiusFraction: Self.hubFraction)
+                    .stroke(HUD.signal.opacity(0.5), lineWidth: 1)
+                WedgeInnerArc(index: index, wedgeCount: 8, innerRadiusFraction: Self.hubFraction)
+                    .stroke(HUD.signal.opacity(0.35), lineWidth: 4).blur(radius: 4)
+                WedgeInnerArc(index: index, wedgeCount: 8, innerRadiusFraction: Self.hubFraction)
+                    .stroke(HUD.signal, lineWidth: 1.5)
+                WedgeInnerArc(index: index, wedgeCount: 8, innerRadiusFraction: Self.hubFraction)
+                    .stroke(HUD.signalCore, lineWidth: 0.75)
+            }
 
             Circle().strokeBorder(
                 LinearGradient(colors: [.white.opacity(0.38), .white.opacity(0.10)],
@@ -226,6 +241,30 @@ struct RadialMenuView: View {
         .rotationEffect(.degrees(model.isVisible ? 0 : hiddenRotation))
         .opacity(model.isVisible ? 1.0 : 0.0)
         .animation(model.isVisible ? bloom.delay(ringDelay) : dismiss, value: model.isVisible)
+    }
+
+    /// Engraved graduations milled into the bezel, matching the window's dial.
+    private var calibrationTicks: some View {
+        Canvas { ctx, size in
+            let c = CGPoint(x: size.width / 2, y: size.height / 2)
+            let outer = min(size.width, size.height) / 2
+            for i in 0..<32 {   // minor graduations every 11.25 degrees
+                let a = -Double.pi / 2 + Double(i) * (2 * Double.pi / 32)
+                var p = Path()
+                p.move(to: CGPoint(x: c.x + (outer - 5) * cos(a), y: c.y + (outer - 5) * sin(a)))
+                p.addLine(to: CGPoint(x: c.x + (outer - 1) * cos(a), y: c.y + (outer - 1) * sin(a)))
+                ctx.stroke(p, with: .color(.white.opacity(0.08)), lineWidth: 1)
+            }
+            for i in 0..<8 {    // major ticks on the wedge boundaries
+                let a = -Double.pi / 2 + (Double(i) + 0.5) * (2 * Double.pi / 8)
+                var p = Path()
+                p.move(to: CGPoint(x: c.x + (outer - 8) * cos(a), y: c.y + (outer - 8) * sin(a)))
+                p.addLine(to: CGPoint(x: c.x + (outer - 1) * cos(a), y: c.y + (outer - 1) * sin(a)))
+                ctx.stroke(p, with: .color(.white.opacity(0.18)), lineWidth: 1)
+            }
+        }
+        .frame(width: Self.ringSize, height: Self.ringSize)
+        .allowsHitTesting(false)
     }
 
     // MARK: - Lens
@@ -276,7 +315,8 @@ struct RadialMenuView: View {
             .foregroundStyle(labelColor(isSelected: isSelected, isEmpty: label == nil))
             // The ring is translucent, so type carries its own contrast over any background.
             .shadow(color: .black.opacity(0.55), radius: 2, y: 1)
-            .scaleEffect(isSelected ? 1.12 : 1.0)
+            .shadow(color: HUD.signal.opacity(isSelected ? 0.55 : 0), radius: 8)
+            .scaleEffect(isSelected ? 1.06 : 1.0)
             .animation(.spring(response: 0.2, dampingFraction: 0.7), value: isSelected)
             .offset(x: radius * sin(angle), y: -radius * cos(angle))
             .opacity(model.isVisible ? 1.0 : 0.0)
