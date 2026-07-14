@@ -38,10 +38,11 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: ai.symbiotica.Snip
-        MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: "1"
+        MARKETING_VERSION: "2026.7.0"
+        CURRENT_PROJECT_VERSION: "2026071400"
         SWIFT_VERSION: "5.9"
-        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "Developer ID Application"
         DEVELOPMENT_TEAM: "7G4UQW35EL"
         ENABLE_HARDENED_RUNTIME: YES
         GENERATE_INFOPLIST_FILE: NO
