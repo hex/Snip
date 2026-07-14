@@ -48,7 +48,7 @@ struct LibraryView: View {
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 4) {
-                fieldLabel("NO WEDGE SELECTED")
+                FieldLabel("NO WEDGE SELECTED")
                 Text("Pick a wedge to load it here.")
                     .font(.system(size: 15))
                     .foregroundStyle(HUD.textSecondary)
@@ -56,11 +56,11 @@ struct LibraryView: View {
 
             VStack(alignment: .leading, spacing: 16) {
                 VStack(alignment: .leading, spacing: 7) {
-                    fieldLabel("LABEL")
+                    FieldLabel("LABEL")
                     Rectangle().fill(HUD.emphasis).frame(width: 150, height: 1)
                 }
                 VStack(alignment: .leading, spacing: 8) {
-                    fieldLabel("TEXT")
+                    FieldLabel("TEXT")
                     RoundedRectangle(cornerRadius: 10)
                         .strokeBorder(HUD.hairline, lineWidth: 1)
                         .frame(height: 96)
@@ -137,7 +137,7 @@ struct LibraryView: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                fieldLabel("TEXT")
+                FieldLabel("TEXT")
                 TextEditor(text: $model.library.snippets[index].body)
                     .scrollContentBackground(.hidden)
                     .font(.system(size: 13, design: .monospaced))
@@ -153,13 +153,6 @@ struct LibraryView: View {
         .padding(EdgeInsets(top: 34, leading: 26, bottom: 22, trailing: 26))
         .frame(minWidth: 360, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onChange(of: model.library) { _, _ in model.save() }
-    }
-
-    private func fieldLabel(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 10, weight: .semibold))
-            .tracking(0.9)
-            .foregroundStyle(HUD.textTertiary)
     }
 
     /// Tokens the snippet expands at paste time, plus the $| caret marker; tapping appends one.

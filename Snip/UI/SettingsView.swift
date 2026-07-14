@@ -31,32 +31,80 @@ struct TriggerSettingsView: View {
     }
 
     var body: some View {
-        Form {
-            Section {
-                Picker("Gesture", selection: gestureBinding) {
-                    ForEach(Gesture.allCases) { Text($0.rawValue).tag($0) }
+        VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 12) {
+                FieldLabel("OPEN THE RING")
+                VStack(spacing: 0) {
+                    plateRow("Gesture") { gestureSegments }
+                    Divider().overlay(HUD.hairline)
+                    plateRow("Trigger") { triggerControl }
                 }
-                .pickerStyle(.segmented)
-
-                HStack {
-                    Text("Trigger")
-                    Spacer()
-                    Text(model.triggerConfig.label)
-                        .foregroundStyle(.secondary)
-                    Button(isRecordingShortcut ? recordingPrompt : "Record") {
-                        startRecordingShortcut()
-                    }
-                    .disabled(isRecordingShortcut)
-                }
-            } header: {
-                Text("Open the ring")
-            } footer: {
-                Text(footerText)
+                .background(RoundedRectangle(cornerRadius: 10).fill(HUD.chamber))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(HUD.hairline, lineWidth: 1))
             }
+
+            Text(footerText)
+                .font(.system(size: 12))
+                .foregroundStyle(HUD.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: 520, alignment: .leading)
+
+            Spacer(minLength: 0)
         }
-        .formStyle(.grouped)
+        .padding(EdgeInsets(top: 34, leading: 26, bottom: 22, trailing: 26))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onChange(of: model.triggerConfig) { _, _ in onConfigChanged() }
         .onDisappear { if isRecordingShortcut { cancelRecording() } }
+    }
+
+    /// A titled row inside a plate: label at the left, its control flush right.
+    private func plateRow<Control: View>(_ title: String, @ViewBuilder control: () -> Control) -> some View {
+        HStack(spacing: 12) {
+            Text(title)
+                .font(.system(size: 13))
+                .foregroundStyle(HUD.textSecondary)
+            Spacer(minLength: 12)
+            control()
+        }
+        .padding(.horizontal, 14)
+        .frame(minHeight: 46)
+    }
+
+    /// The gesture picker as machined keys: the active segment seats as a raised key with a lit accent
+    /// edge. The signal appears only as that thin edge of light, never as a flat filled segment.
+    private var gestureSegments: some View {
+        HStack(spacing: 3) {
+            ForEach(Gesture.allCases) { gesture in
+                let on = currentGesture == gesture
+                Text(gesture.rawValue)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(on ? HUD.textPrimary : HUD.textSecondary)
+                    .padding(.horizontal, 12)
+                    .frame(height: 26)
+                    .background(RoundedRectangle(cornerRadius: 6).fill(HUD.raised).opacity(on ? 1 : 0))
+                    .overlay(RoundedRectangle(cornerRadius: 6)
+                        .strokeBorder(HUD.signal.opacity(0.8), lineWidth: 1).opacity(on ? 1 : 0))
+                    .contentShape(Rectangle())
+                    .onTapGesture { setGesture(gesture) }
+            }
+        }
+        .padding(3)
+        .background(RoundedRectangle(cornerRadius: 8).fill(HUD.field))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(HUD.hairline, lineWidth: 1))
+        .animation(.easeOut(duration: 0.12), value: currentGesture)
+    }
+
+    private var triggerControl: some View {
+        HStack(spacing: 10) {
+            Text(model.triggerConfig.label)
+                .font(.system(size: 12))
+                .foregroundStyle(HUD.textTertiary)
+            Button(isRecordingShortcut ? recordingPrompt : "Record") { startRecordingShortcut() }
+                .buttonStyle(MachinedKeyButtonStyle())
+                .disabled(isRecordingShortcut)
+                .opacity(isRecordingShortcut ? 0.6 : 1)
+        }
     }
 
     private var recordingPrompt: String {
@@ -72,13 +120,8 @@ struct TriggerSettingsView: View {
         }
     }
 
-    /// Reads the gesture from the stored binding and, on change, rebuilds the binding so the picker and
-    /// label never disagree. Double-click needs a mouse button, so flipping a key binding to
-    /// double-click defaults it to the middle button.
-    private var gestureBinding: Binding<Gesture> {
-        Binding(get: { currentGesture }, set: { setGesture($0) })
-    }
-
+    /// Sets the gesture and rebuilds the binding so the segments and label never disagree. Double-click
+    /// needs a mouse button, so flipping a key binding to double-click defaults it to the middle button.
     private func setGesture(_ gesture: Gesture) {
         switch gesture {
         case .hold:
@@ -193,34 +236,54 @@ struct ExceptionsSettingsView: View {
     var onConfigChanged: () -> Void
 
     var body: some View {
-        Form {
-            Section {
+        VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 12) {
+                FieldLabel("SUPPRESS THE TRIGGER IN THESE APPS")
+
                 if model.ignoredApps.isEmpty {
                     Text("Snip captures the trigger everywhere. Add apps to let it through — where the trigger already means something (Blender orbit, a browser's new tab).")
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 13))
+                        .foregroundStyle(HUD.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: 520, alignment: .leading)
                 } else {
-                    ForEach(model.ignoredApps) { app in
-                        HStack(spacing: 8) {
-                            Image(nsImage: icon(forBundleID: app.bundleID))
-                                .resizable().frame(width: 18, height: 18)
-                            Text(app.name)
-                            Spacer()
-                            Button {
-                                remove(app)
-                            } label: {
-                                Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
-                            }
-                            .buttonStyle(.plain)
-                            .help("Remove")
+                    VStack(spacing: 0) {
+                        ForEach(Array(model.ignoredApps.enumerated()), id: \.element.id) { index, app in
+                            if index > 0 { Divider().overlay(HUD.hairline) }
+                            appRow(app)
                         }
                     }
+                    .background(RoundedRectangle(cornerRadius: 10).fill(HUD.chamber))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(HUD.hairline, lineWidth: 1))
                 }
+
                 addMenu
-            } header: {
-                Text("Suppress the trigger in these apps")
             }
+            Spacer(minLength: 0)
         }
-        .formStyle(.grouped)
+        .padding(EdgeInsets(top: 34, leading: 26, bottom: 22, trailing: 26))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private func appRow(_ app: IgnoredApp) -> some View {
+        HStack(spacing: 10) {
+            Image(nsImage: icon(forBundleID: app.bundleID))
+                .resizable().frame(width: 18, height: 18)
+            Text(app.name)
+                .font(.system(size: 13))
+                .foregroundStyle(HUD.textPrimary)
+            Spacer()
+            Button { remove(app) } label: {
+                Image(systemName: "minus.circle.fill")
+                    .font(.system(size: 13))
+                    .foregroundStyle(HUD.textTertiary)
+            }
+            .buttonStyle(.plain)
+            .help("Remove")
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 46)
     }
 
     private var addMenu: some View {
@@ -239,6 +302,7 @@ struct ExceptionsSettingsView: View {
             Label("Add Application", systemImage: "plus")
         }
         .menuStyle(.button)
+        .buttonStyle(MachinedKeyButtonStyle())
         .fixedSize()
     }
 

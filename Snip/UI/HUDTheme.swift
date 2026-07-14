@@ -54,3 +54,30 @@ struct HUDBackground: View {
             .ignoresSafeArea()
     }
 }
+
+/// The engraved calibration cap: a small letter-spaced uppercase label that heads a section.
+struct FieldLabel: View {
+    private let text: String
+    init(_ text: String) { self.text = text }
+    var body: some View {
+        Text(text)
+            .font(.system(size: 10, weight: .semibold))
+            .tracking(0.9)
+            .foregroundStyle(HUD.textTertiary)
+    }
+}
+
+/// A machined key: a raised chamber-fill control that seats deeper (ridge) while pressed. The push-button
+/// counterpart to the sidebar's pressed-key selection.
+struct MachinedKeyButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(HUD.textPrimary)
+            .padding(.horizontal, 12)
+            .frame(height: 26)
+            .background(RoundedRectangle(cornerRadius: 6).fill(configuration.isPressed ? HUD.ridge : HUD.raised))
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(HUD.hairline, lineWidth: 1))
+            .contentShape(RoundedRectangle(cornerRadius: 6))
+    }
+}

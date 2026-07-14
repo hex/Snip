@@ -68,10 +68,8 @@ struct MainWindowView: View {
             LibraryView(model: model)
         case .trigger:
             TriggerSettingsView(model: model, onConfigChanged: onConfigChanged, onRecordingChange: onRecordingChange)
-                .padding(.top, 22)
         case .exceptions:
             ExceptionsSettingsView(model: model, onConfigChanged: onConfigChanged)
-                .padding(.top, 22)
         }
     }
 }
