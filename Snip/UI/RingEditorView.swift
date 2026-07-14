@@ -119,9 +119,6 @@ private struct RingBoard: View {
     private var hubRadius: CGFloat { outerRadius * Self.hubFraction }
     private let labelRadius: CGFloat = 90
 
-    /// The dial the menu bar shows, kept once and engraved faintly onto the hub as a maker's mark.
-    private static let brandMark = menuBarDialImage()
-
     /// The wedge currently being dragged and where its label sits (ring coordinate space).
     @State private var drag: DragState?
     private struct DragState { let slot: Int; var location: CGPoint }
@@ -237,15 +234,36 @@ private struct RingBoard: View {
         .frame(width: hubSize, height: hubSize)
     }
 
-    /// The maker's mark: the dial engraved faintly into the hub boss, centered on the instrument.
+    /// The maker's mark: the dial etched into the hub boss as a whisper-thin engraving — a large, faint
+    /// echo of the ring (outer circle, eight wedge spokes, hub dot), drawn as hairlines so it reads as
+    /// tooling in the metal rather than a printed icon.
     private var makersMark: some View {
-        Image(nsImage: Self.brandMark)
-            .renderingMode(.template)
-            .resizable()
-            .frame(width: 30, height: 30)
-            .foregroundStyle(HUD.textSecondary)
-            .opacity(0.4)
-            .allowsHitTesting(false)
+        Canvas { ctx, size in
+            let c = CGPoint(x: size.width / 2, y: size.height / 2)
+            let outer = min(size.width, size.height) / 2 - 1
+            let inner = outer * 0.42
+            let shade = GraphicsContext.Shading.color(HUD.textSecondary.opacity(0.16))
+
+            var ring = Path()
+            ring.addEllipse(in: CGRect(x: c.x - outer, y: c.y - outer, width: outer * 2, height: outer * 2))
+            ctx.stroke(ring, with: shade, lineWidth: 1)
+
+            for step in 0..<8 {   // eight wedge spokes, offset 22.5° from vertical
+                let angle = Double.pi / 8 + Double(step) * (Double.pi / 4)
+                let dx = CGFloat(cos(angle)), dy = CGFloat(sin(angle))
+                var spoke = Path()
+                spoke.move(to: CGPoint(x: c.x + dx * inner, y: c.y + dy * inner))
+                spoke.addLine(to: CGPoint(x: c.x + dx * outer, y: c.y + dy * outer))
+                ctx.stroke(spoke, with: shade, lineWidth: 0.75)
+            }
+
+            let hub = outer * 0.13
+            var dot = Path()
+            dot.addEllipse(in: CGRect(x: c.x - hub, y: c.y - hub, width: hub * 2, height: hub * 2))
+            ctx.fill(dot, with: shade)
+        }
+        .frame(width: 56, height: 56)
+        .allowsHitTesting(false)
     }
 
     private var selectedIndex: Int? {
