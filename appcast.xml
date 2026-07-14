@@ -5,5 +5,16 @@
         <link>https://raw.githubusercontent.com/hex/Snip/main/appcast.xml</link>
         <description>Snip radial snippet menu updates</description>
         <language>en</language>
+        <item>
+            <title>Version 2026.7.0</title>
+            <pubDate>Tue, 14 Jul 2026 14:53:04 +0000</pubDate>
+            <sparkle:version>2026071400</sparkle:version>
+            <sparkle:shortVersionString>2026.7.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/hex/Snip/releases/download/v2026.7.0/Snip-2026.7.0.zip"
+                       length="2427654"
+                       type="application/octet-stream"
+                       sparkle:edSignature="LEZci9RxawNeo20W5dXTe7JmhLkPX4VSXIgrZojr2TcB5K2/oDTnu0mFf5SDqyWD3IApIIyf4rJxfCbQlXBBDQ==" />
+        </item>
     </channel>
 </rss>
