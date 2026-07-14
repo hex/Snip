@@ -13,6 +13,9 @@ struct RingEditorView: View {
     /// Delete the current selection.
     var onDelete: () -> Void
 
+    /// The same dial the menu bar shows, kept once and tinted faintly as a corner maker's mark.
+    private static let brandMark = menuBarDialImage()
+
     var body: some View {
         VStack(spacing: 0) {
             Spacer(minLength: 12)
@@ -84,6 +87,14 @@ struct RingEditorView: View {
                 .disabled(selection == nil)
                 .opacity(selection == nil ? 0.4 : 1)
             Spacer()
+            // A discreet maker's mark: the dial, milled faintly into the corner of the instrument.
+            Image(nsImage: Self.brandMark)
+                .renderingMode(.template)
+                .resizable()
+                .frame(width: 15, height: 15)
+                .foregroundStyle(HUD.textMuted)
+                .opacity(0.8)
+                .accessibilityHidden(true)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
