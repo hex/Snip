@@ -48,6 +48,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let paster = PasteEngine()
     private var mainWindow: NSWindow?
     private var onboardingWindow: NSWindow?
+    private var grantItem: NSMenuItem?
+    private var grantSeparator: NSMenuItem?
     let model = AppModel()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -62,9 +64,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "Snippets…", action: #selector(openLibrary), keyEquivalent: "")
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(withTitle: "Grant Accessibility…", action: #selector(grantAccessibility), keyEquivalent: "")
-        menu.addItem(NSMenuItem.separator())
+        // Accessibility is a one-time grant; menuNeedsUpdate hides this and its divider once trusted.
+        grantItem = menu.addItem(withTitle: "Grant Accessibility…", action: #selector(grantAccessibility), keyEquivalent: "")
+        let grantDivider = NSMenuItem.separator()
+        grantSeparator = grantDivider
+        menu.addItem(grantDivider)
         menu.addItem(NSMenuItem(title: "Quit Snip", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        menu.delegate = self
         statusItem.menu = menu
 
         if !permissions.isTrusted { openOnboarding() }
@@ -184,5 +190,15 @@ extension AppDelegate: NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         guard notification.object as? NSWindow === mainWindow else { return }
         engine?.setPaused(false)
+    }
+}
+
+extension AppDelegate: NSMenuDelegate {
+    /// Accessibility is granted once. Re-checked each time the menu opens, so the prompt (and its
+    /// divider) hide as soon as we're trusted and reappear if the grant is ever revoked.
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        let trusted = permissions.isTrusted
+        grantItem?.isHidden = trusted
+        grantSeparator?.isHidden = trusted
     }
 }
