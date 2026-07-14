@@ -1313,3 +1313,17 @@ Session commit run (design/snip-brainstorm, NOT pushed): 2b9abe6 overlay bump,
 fafa26d signal=system accent, 63b4ee3 settings Detent restyle, e7ec714 menu-bar
 dial, ca57068 maker's mark. Plus the DesignSync push (no git commit; lives in the
 claude.ai Snip project). Still open, not taken: push the branch, /wrap.
+
+CORRECTION (later same day): the maker's mark iterated twice more, so the note
+above is superseded. ca57068 put it in the bottom-bar CORNER reusing the menu-bar
+NSImage. Alex: "it should be in the middle of the ring" -> moved onto the hub boss
+(07c26df). Alex: "it's too small and too obvious" -> redrew it as a Canvas
+engraving with 1px hairline strokes at a 56px footprint, ~0.16 opacity (ef9b810).
+KEY LESSON: the earlier "one dial definition, cannot drift" DRY claim NO LONGER
+HOLDS and was the wrong instinct here. An 18px template raster upscaled to hub
+size has strokes that scale to ~3.6px = the "too obvious" Alex saw; a faint large
+engraving needs hairlines that stay 1px at any size, which only vector (Canvas)
+gives. So there are deliberately TWO dial geometries now: menuBarDialImage()
+(AppKit template, 18px, for the menu bar) and RingBoard.makersMark (SwiftUI Canvas
+hairlines, 56px, for the hub). Different rendering contexts, different tools;
+do not try to re-unify them. Full run is now 8 commits ending ef9b810.
