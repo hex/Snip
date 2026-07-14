@@ -1,11 +1,11 @@
 // ABOUTME: The main window's dark-HUD design tokens: the "Detent" machined-instrument language.
-// ABOUTME: One cool-graphite ramp climbed by depth-of-cut; a single fixed instrument azure is the only signal.
+// ABOUTME: One cool-graphite ramp climbed by depth-of-cut; the system accent is the only signal color.
 import SwiftUI
 import AppKit
 
 /// The Detent language: the window is a dark-anodized instrument. Surfaces are depths of cut on one
-/// cool-graphite ramp, edges are machined seams, and the one signal is a fixed backlit azure, never the
-/// system accent, so Snip reads identically on every Mac.
+/// cool-graphite ramp, edges are machined seams, and the one signal is the system accent, rendered as a
+/// backlit rim and glow rather than a flat fill.
 enum HUD {
     static let well = Color(hex: 0x0A0C0F)      // deepest recess: inset wells, the pit under the dial
     static let ground = Color(hex: 0x0E1116)    // window base plane; sidebar and content share it
@@ -26,10 +26,14 @@ enum HUD {
     static let textMuted = Color(hex: 0x454B54)       // placeholder / ghost etch
 
     /// The single signal: the lit bearing, the sidebar index bar, the focused-field underline, the
-    /// caret. A fixed instrument azure, not `.controlAccentColor`. Rim and glow only, never a flat fill.
-    /// (To follow the system accent instead, set this to `Color.accentColor`.)
-    static let signal = Color(hex: 0x45A6F0)
-    static let signalCore = Color(hex: 0xA6D8FF)      // the hottest filament center of the lit bearing
+    /// caret. The macOS system accent. On the dial the selection reads as a backlit rim and glow, never
+    /// a flat wedge fill.
+    static let signal = Color(nsColor: .controlAccentColor)
+    /// The hottest filament center of the lit bearing: the accent lifted toward white so the core keeps
+    /// the accent's own hue on every setting instead of clashing with a fixed tint.
+    static let signalCore = Color(nsColor: NSColor.controlAccentColor
+        .usingColorSpace(.sRGB)?
+        .blended(withFraction: 0.65, of: .white) ?? .white)
 }
 
 extension Color {
