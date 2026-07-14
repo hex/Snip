@@ -8,6 +8,7 @@ import Observation
 @Observable
 final class UpdaterController {
     @ObservationIgnored private let controller: SPUStandardUpdaterController
+    @ObservationIgnored private var sparkleObservation: NSKeyValueObservation?
 
     /// Mirrors Sparkle's setting so SwiftUI observes changes; Sparkle persists the value itself.
     var automaticallyChecksForUpdates: Bool {
@@ -19,6 +20,14 @@ final class UpdaterController {
                                                   updaterDelegate: nil,
                                                   userDriverDelegate: nil)
         automaticallyChecksForUpdates = controller.updater.automaticallyChecksForUpdates
+        // Sparkle can change the setting itself (its first-run permission prompt); mirror it back.
+        sparkleObservation = controller.updater.observe(\.automaticallyChecksForUpdates, options: [.new]) { [weak self] _, change in
+            guard let value = change.newValue else { return }
+            MainActor.assumeIsolated {
+                guard let self, self.automaticallyChecksForUpdates != value else { return }
+                self.automaticallyChecksForUpdates = value
+            }
+        }
     }
 
     func checkForUpdates() {

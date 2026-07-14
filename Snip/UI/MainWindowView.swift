@@ -4,6 +4,7 @@ import SwiftUI
 
 struct MainWindowView: View {
     @Bindable var model: AppModel
+    var updater: UpdaterController
     var onConfigChanged: () -> Void
     var onRecordingChange: (Bool) -> Void
 
@@ -67,7 +68,7 @@ struct MainWindowView: View {
         case .snippets:
             LibraryView(model: model)
         case .trigger:
-            TriggerSettingsView(model: model, onConfigChanged: onConfigChanged, onRecordingChange: onRecordingChange)
+            TriggerSettingsView(model: model, updater: updater, onConfigChanged: onConfigChanged, onRecordingChange: onRecordingChange)
         case .exceptions:
             ExceptionsSettingsView(model: model, onConfigChanged: onConfigChanged)
         }

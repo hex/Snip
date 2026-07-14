@@ -50,9 +50,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var onboardingWindow: NSWindow?
     private var grantItem: NSMenuItem?
     private var grantSeparator: NSMenuItem?
+    private var updater: UpdaterController!
     let model = AppModel()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        updater = UpdaterController()
         seedSampleSnippetsIfEmpty()
         overlay = OverlayPanelController(model: model)   // prewarms the panel + SwiftUI graph
         startEventTap()
@@ -61,7 +63,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.button?.image?.accessibilityDescription = "Snip"
 
         let menu = NSMenu()
-        menu.addItem(withTitle: "Snippets…", action: #selector(openLibrary), keyEquivalent: "")
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         menu.addItem(NSMenuItem.separator())
         // Accessibility is a one-time grant; menuNeedsUpdate hides this and its divider once trusted.
@@ -69,6 +70,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let grantDivider = NSMenuItem.separator()
         grantSeparator = grantDivider
         menu.addItem(grantDivider)
+        menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "")
+        menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit Snip", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         menu.delegate = self
         statusItem.menu = menu
@@ -110,9 +113,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.save()
     }
 
-    // The menu's "Snippets…" and "Settings…" both open the one window, on the matching tab.
+    // The menu's single "Settings…" item opens the window on Snippets; the empty-wedge flow reuses openLibrary.
     @objc private func openLibrary() { openMainWindow(tab: .snippets) }
-    @objc private func openSettings() { openMainWindow(tab: .trigger) }
+    @objc private func openSettings() { openMainWindow(tab: .snippets) }
 
     private func openMainWindow(tab: MainTab) {
         if mainWindow == nil {
@@ -128,6 +131,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window.backgroundColor = .clear
             window.contentView = NSHostingView(rootView: MainWindowView(
                 model: model,
+                updater: updater,
                 onConfigChanged: { [weak self] in self?.restartEventTap() },
                 onRecordingChange: { [weak self] recording in self?.engine?.setPaused(recording) }))
             window.isReleasedWhenClosed = false
@@ -180,6 +184,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func grantAccessibility() {
         permissions.requestTrust()
         restartEventTap()
+    }
+
+    @MainActor @objc private func checkForUpdates() {
+        updater.checkForUpdates()
     }
 
 }

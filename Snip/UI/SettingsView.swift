@@ -10,6 +10,7 @@ import SnipKit
 
 struct TriggerSettingsView: View {
     @Bindable var model: AppModel
+    @Bindable var updater: UpdaterController
     var onConfigChanged: () -> Void
     /// Pauses/resumes the event tap so a bound key/button reaches the recorder instead of the ring.
     var onRecordingChange: (Bool) -> Void
@@ -49,6 +50,20 @@ struct TriggerSettingsView: View {
                 .foregroundStyle(HUD.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: 520, alignment: .leading)
+
+            VStack(alignment: .leading, spacing: 12) {
+                FieldLabel("UPDATES")
+                plateRow("Automatically check for updates") {
+                    Toggle("", isOn: $updater.automaticallyChecksForUpdates)
+                        .toggleStyle(.switch)
+                        .controlSize(.small)
+                        .labelsHidden()
+                        .tint(HUD.signal)
+                }
+                .background(RoundedRectangle(cornerRadius: 10).fill(HUD.chamber))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(HUD.hairline, lineWidth: 1))
+            }
 
             Spacer(minLength: 0)
         }
