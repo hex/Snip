@@ -1334,3 +1334,11 @@ re-opens the a11y pane). Made AppDelegate the menu's NSMenuDelegate and hide the
 item + its divider in menuNeedsUpdate when permissions.isTrusted (AXIsProcessTrusted),
 re-checked per open so it returns if revoked / on a fresh install. Verified: menu is
 now Snippets / Settings / Quit. Commit f6f96c4 (9th of the run).
+
+2026-07-14 (session close): Alex chose push-then-wrap. The repo had NO git remote at
+all (git remote -v empty), so "push" had nowhere to go. gh was authed (account hex,
+repo scope). Created a PRIVATE repo github.com/hex/Snip via
+`gh repo create hex/Snip --private --source=. --remote=origin`, then
+`git push -u origin --all` pushed both branches: design/snip-brainstorm (83 commits,
+the real history) and main (1-commit base). Upstream tracking set. See
+[[snip-repo]] and [[snip-build-gotchas]] (new durable memories this session).
