@@ -3,6 +3,7 @@
 import SwiftUI
 import AppKit
 import CoreGraphics
+import ServiceManagement
 import UniformTypeIdentifiers
 import SnipKit
 
@@ -17,6 +18,7 @@ struct TriggerSettingsView: View {
 
     @State private var isRecordingShortcut = false
     @State private var shortcutMonitor: Any?
+    @State private var startsAtLogin = SMAppService.mainApp.status == .enabled
 
     /// The two ways to arm the trigger. A key or a mouse button can be held; only a mouse button can
     /// be double-clicked (with its second press held).
@@ -52,13 +54,23 @@ struct TriggerSettingsView: View {
                 .frame(maxWidth: 520, alignment: .leading)
 
             VStack(alignment: .leading, spacing: 12) {
-                FieldLabel("UPDATES")
-                plateRow("Automatically check for updates") {
-                    Toggle("", isOn: $updater.automaticallyChecksForUpdates)
-                        .toggleStyle(.switch)
-                        .controlSize(.small)
-                        .labelsHidden()
-                        .tint(HUD.signal)
+                FieldLabel("APPLICATION")
+                VStack(spacing: 0) {
+                    plateRow("Start at login") {
+                        Toggle("", isOn: Binding(get: { startsAtLogin }, set: { setStartAtLogin($0) }))
+                            .toggleStyle(.switch)
+                            .controlSize(.small)
+                            .labelsHidden()
+                            .tint(HUD.signal)
+                    }
+                    Divider().overlay(HUD.hairline)
+                    plateRow("Automatically check for updates") {
+                        Toggle("", isOn: $updater.automaticallyChecksForUpdates)
+                            .toggleStyle(.switch)
+                            .controlSize(.small)
+                            .labelsHidden()
+                            .tint(HUD.signal)
+                    }
                 }
                 .background(RoundedRectangle(cornerRadius: 10).fill(HUD.chamber))
                 .clipShape(RoundedRectangle(cornerRadius: 10))
@@ -70,6 +82,7 @@ struct TriggerSettingsView: View {
         .padding(EdgeInsets(top: 34, leading: 26, bottom: 22, trailing: 26))
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onChange(of: model.triggerConfig) { _, _ in onConfigChanged() }
+        .onAppear { startsAtLogin = SMAppService.mainApp.status == .enabled }
         .onDisappear { if isRecordingShortcut { cancelRecording() } }
     }
 
@@ -120,6 +133,22 @@ struct TriggerSettingsView: View {
                 .disabled(isRecordingShortcut)
                 .opacity(isRecordingShortcut ? 0.6 : 1)
         }
+    }
+
+    /// Registers or unregisters Snip as a login item, then re-reads launchd's actual status. System
+    /// Settings owns the same switch, so the status query is the source of truth: a failed or pending
+    /// change snaps the toggle back instead of showing a state that isn't real.
+    private func setStartAtLogin(_ enabled: Bool) {
+        do {
+            if enabled {
+                try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
+            }
+        } catch {
+            // The re-read below reverts the toggle; there is no other surface to report the error on.
+        }
+        startsAtLogin = SMAppService.mainApp.status == .enabled
     }
 
     private var recordingPrompt: String {

@@ -29,6 +29,7 @@
 - **Ring editor** -- arrange snippets on a visual dial in the library; drag positions to swap them
 - **Per-app exceptions** -- suppress the trigger in apps that need the button (e.g. Blender's orbit)
 - **Follows your accent** -- the entire UI keys off the system accent color
+- **Start at login** -- optional login item, toggled in Settings
 - **Auto-update** -- checks for updates via Sparkle, with one-click install from GitHub Releases
 
 ## Install
