@@ -280,13 +280,14 @@ struct AppsSettingsView: View {
                 .foregroundStyle(HUD.textPrimary)
             Spacer()
             if recordingBundleID == rule.bundleID {
-                Text("Press a key or mouse button…")
+                Text(isDoubleClick(rule) ? "Click a mouse button…" : "Press a key or mouse button…")
                     .font(.system(size: 12))
                     .foregroundStyle(HUD.textTertiary)
             } else if case let .trigger(config) = rule.behavior {
                 Text(config.label)
                     .font(.system(size: 12))
                     .foregroundStyle(HUD.textTertiary)
+                gestureMenu(for: rule)
                 Button("Record") { startRecording(for: rule.bundleID) }
                     .buttonStyle(MachinedKeyButtonStyle())
                     .disabled(recordingBundleID != nil)
@@ -328,6 +329,46 @@ struct AppsSettingsView: View {
         }
     }
 
+    /// A custom trigger opens on a double-click-and-hold only when its binding is the double-click case.
+    private func isDoubleClick(_ rule: AppRule) -> Bool {
+        if case .trigger(let config) = rule.behavior,
+           case .doubleClickMouseButton = config.binding { return true }
+        return false
+    }
+
+    /// Hold vs double-click for one app's custom trigger. Double-click needs a mouse button, so
+    /// flipping a key binding to double-click defaults it to the middle button (mirrors the global pane).
+    private func gestureMenu(for rule: AppRule) -> some View {
+        Menu {
+            Button("Hold") { setGesture(doubleClick: false, for: rule.bundleID) }
+            Button("Double-click") { setGesture(doubleClick: true, for: rule.bundleID) }
+        } label: {
+            Text(isDoubleClick(rule) ? "Double-click" : "Hold")
+        }
+        .menuStyle(.button)
+        .buttonStyle(MachinedKeyButtonStyle())
+        .fixedSize()
+    }
+
+    private func setGesture(doubleClick: Bool, for bundleID: String) {
+        guard let index = model.appRules.firstIndex(where: { $0.bundleID == bundleID }),
+              case let .trigger(config) = model.appRules[index].behavior else { return }
+        let binding: TriggerBinding
+        switch (doubleClick, config.binding) {
+        case (true, .holdMouseButton(let n)), (true, .doubleClickMouseButton(let n)):
+            binding = .doubleClickMouseButton(n)
+        case (true, .holdKey):
+            binding = .doubleClickMouseButton(2)   // double-click can't bind a key; default to middle
+        case (false, .doubleClickMouseButton(let n)):
+            binding = .holdMouseButton(n)
+        case (false, _):
+            binding = config.binding   // already a hold
+        }
+        let label: String
+        if case .holdKey = binding { label = config.label } else { label = TriggerCapture.mouseButtonLabel(for: binding.mouseButtonNumber ?? 2) }
+        setBehavior(.trigger(TriggerConfig(binding: binding, label: label)), for: bundleID)
+    }
+
     private func setBehavior(_ behavior: AppBehavior, for bundleID: String) {
         guard let index = model.appRules.firstIndex(where: { $0.bundleID == bundleID }) else { return }
         model.appRules[index].behavior = behavior
@@ -338,10 +379,18 @@ struct AppsSettingsView: View {
         cancelRecording()   // a recording armed on another row would otherwise leak its monitor
         recordingBundleID = bundleID
         onRecordingChange(true)   // pause the tap so the pressed input reaches this monitor
-        recordMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .otherMouseDown]) { event in
+        // Double-click can only bind a mouse button; hold can bind a key or a mouse button.
+        let mask: NSEvent.EventTypeMask = doubleClickPending(bundleID) ? [.otherMouseDown] : [.keyDown, .otherMouseDown]
+        recordMonitor = NSEvent.addLocalMonitorForEvents(matching: mask) { event in
             record(event)
             return nil   // swallow the captured input so it doesn't act on the window
         }
+    }
+
+    /// Whether the rule being recorded is in double-click mode (its binding is a double-click case).
+    private func doubleClickPending(_ bundleID: String) -> Bool {
+        guard let rule = model.appRules.first(where: { $0.bundleID == bundleID }) else { return false }
+        return isDoubleClick(rule)
     }
 
     /// Removes the monitor and resumes the tap without recording anything (abandoned recording).
@@ -356,10 +405,17 @@ struct AppsSettingsView: View {
 
     private func record(_ event: NSEvent) {
         guard let bundleID = recordingBundleID else { return }
+        let doubleClick = doubleClickPending(bundleID)
         cancelRecording()
-        guard !TriggerCapture.isEscape(event),
-              let captured = TriggerCapture.holdBinding(from: event) else { return }
-        setBehavior(.trigger(TriggerConfig(binding: captured.binding, label: captured.label)), for: bundleID)
+        guard !TriggerCapture.isEscape(event) else { return }
+        if doubleClick {
+            guard event.type == .otherMouseDown else { return }   // the mask should exclude keys anyway
+            let n = event.buttonNumber
+            setBehavior(.trigger(TriggerConfig(binding: .doubleClickMouseButton(n),
+                                               label: TriggerCapture.mouseButtonLabel(for: n))), for: bundleID)
+        } else if let captured = TriggerCapture.holdBinding(from: event) {
+            setBehavior(.trigger(TriggerConfig(binding: captured.binding, label: captured.label)), for: bundleID)
+        }
     }
 
     private var addMenu: some View {

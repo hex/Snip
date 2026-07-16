@@ -37,7 +37,9 @@ final class EventTapEngine {
     // frontmost id is cached on main and read (locked) from the tap thread on the hot path.
     private let frontmostLock = NSLock()
     private var frontmostBundleID: String?
-    private var workspaceObserver: NSObjectProtocol?
+    private let selfBundleID = Bundle.main.bundleIdentifier
+    private var activateObserver: NSObjectProtocol?
+    private var resignObserver: NSObjectProtocol?
 
     init(routing: TriggerRouting,
          permissions: PermissionsCoordinator,
@@ -111,28 +113,47 @@ final class EventTapEngine {
     func stop() {
         if let tap { CGEvent.tapEnable(tap: tap, enable: false) }
         if let tapRunLoop { CFRunLoopStop(tapRunLoop) }
-        if let workspaceObserver {
-            NSWorkspace.shared.notificationCenter.removeObserver(workspaceObserver)
+        if let activateObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(activateObserver)
+        }
+        if let resignObserver {
+            NotificationCenter.default.removeObserver(resignObserver)
         }
         tap = nil
         runLoopSource = nil
         tapRunLoop = nil
-        workspaceObserver = nil
+        activateObserver = nil
+        resignObserver = nil
     }
 
     // MARK: - Frontmost-app routing
 
     private func observeFrontmost() {
         updateFrontmost(NSWorkspace.shared.frontmostApplication?.bundleIdentifier)
-        workspaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
+        activateObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
         ) { [weak self] note in
             let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
             self?.updateFrontmost(app?.bundleIdentifier)
         }
+        // Snip is a menu-bar agent: when its settings window is up and you click straight back to
+        // the app you were in, macOS may not post didActivateApplication for that app, leaving the
+        // routed app stale. Snip resigning active is a reliable signal that you left its window, so
+        // re-read the real frontmost then.
+        resignObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didResignActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.updateFrontmost(NSWorkspace.shared.frontmostApplication?.bundleIdentifier)
+            }
+        }
     }
 
+    /// Never route by Snip itself. Its own agent app is frontmost while the settings window is up,
+    /// but the trigger is only ever used in another app; caching self would leave the wrong app
+    /// routed after the window closes.
     private func updateFrontmost(_ bundleID: String?) {
+        guard bundleID != selfBundleID else { return }
         frontmostLock.lock(); frontmostBundleID = bundleID; frontmostLock.unlock()
     }
 
