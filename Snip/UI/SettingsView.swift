@@ -131,7 +131,6 @@ struct TriggerSettingsView: View {
             Button(isRecordingShortcut ? recordingPrompt : "Record") { startRecordingShortcut() }
                 .buttonStyle(MachinedKeyButtonStyle())
                 .disabled(isRecordingShortcut)
-                .opacity(isRecordingShortcut ? 0.6 : 1)
         }
     }
 
@@ -208,6 +207,7 @@ struct TriggerSettingsView: View {
 
     private func recordTrigger(from event: NSEvent) {
         cancelRecording()
+        guard !TriggerCapture.isEscape(event) else { return }
 
         if currentGesture == .doubleClick {
             guard event.type == .otherMouseDown else { return }   // the mask should exclude keys anyway
@@ -279,14 +279,17 @@ struct AppsSettingsView: View {
                 .font(.system(size: 13))
                 .foregroundStyle(HUD.textPrimary)
             Spacer()
-            if case let .trigger(config) = rule.behavior {
-                Text(recordingBundleID == rule.bundleID ? "Press a key or mouse button…" : config.label)
+            if recordingBundleID == rule.bundleID {
+                Text("Press a key or mouse button…")
+                    .font(.system(size: 12))
+                    .foregroundStyle(HUD.textTertiary)
+            } else if case let .trigger(config) = rule.behavior {
+                Text(config.label)
                     .font(.system(size: 12))
                     .foregroundStyle(HUD.textTertiary)
                 Button("Record") { startRecording(for: rule.bundleID) }
                     .buttonStyle(MachinedKeyButtonStyle())
                     .disabled(recordingBundleID != nil)
-                    .opacity(recordingBundleID == rule.bundleID ? 0.6 : 1)
             }
             behaviorMenu(for: rule)
             Button { remove(rule) } label: {
@@ -301,18 +304,17 @@ struct AppsSettingsView: View {
         .frame(height: 46)
     }
 
-    /// Suppress or a custom trigger. Choosing a custom trigger arms the recorder immediately, so the
-    /// choice flows straight into "press the trigger you want here".
+    /// Suppress or a custom trigger. Choosing a custom trigger only arms the recorder; the rule
+    /// changes when a capture lands, so an abandoned recording can't leave a binding nobody pressed.
     private func behaviorMenu(for rule: AppRule) -> some View {
         Menu {
-            Button("Suppress") { setBehavior(.suppress, for: rule.bundleID) }
-            Button("Custom Trigger") {
-                if case .trigger = rule.behavior { return }
-                setBehavior(.trigger(TriggerConfig()), for: rule.bundleID)
-                startRecording(for: rule.bundleID)
+            Button("Suppress") {
+                cancelRecording()
+                setBehavior(.suppress, for: rule.bundleID)
             }
+            Button("Custom Trigger") { startRecording(for: rule.bundleID) }
         } label: {
-            Text(menuTitle(for: rule.behavior))
+            Text(recordingBundleID == rule.bundleID ? "Custom Trigger" : menuTitle(for: rule.behavior))
         }
         .menuStyle(.button)
         .buttonStyle(MachinedKeyButtonStyle())
@@ -333,6 +335,7 @@ struct AppsSettingsView: View {
     }
 
     private func startRecording(for bundleID: String) {
+        cancelRecording()   // a recording armed on another row would otherwise leak its monitor
         recordingBundleID = bundleID
         onRecordingChange(true)   // pause the tap so the pressed input reaches this monitor
         recordMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .otherMouseDown]) { event in
@@ -342,7 +345,9 @@ struct AppsSettingsView: View {
     }
 
     /// Removes the monitor and resumes the tap without recording anything (abandoned recording).
+    /// Safe to call when nothing is armed.
     private func cancelRecording() {
+        guard recordMonitor != nil || recordingBundleID != nil else { return }
         if let recordMonitor { NSEvent.removeMonitor(recordMonitor) }
         recordMonitor = nil
         recordingBundleID = nil
@@ -352,7 +357,8 @@ struct AppsSettingsView: View {
     private func record(_ event: NSEvent) {
         guard let bundleID = recordingBundleID else { return }
         cancelRecording()
-        guard let captured = TriggerCapture.holdBinding(from: event) else { return }
+        guard !TriggerCapture.isEscape(event),
+              let captured = TriggerCapture.holdBinding(from: event) else { return }
         setBehavior(.trigger(TriggerConfig(binding: captured.binding, label: captured.label)), for: bundleID)
     }
 

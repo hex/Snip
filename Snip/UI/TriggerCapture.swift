@@ -5,6 +5,12 @@ import CoreGraphics
 import SnipKit
 
 enum TriggerCapture {
+    /// Escape cancels a recording instead of becoming the trigger: a hold-Escape binding would eat
+    /// the key in every app it's armed for.
+    static func isEscape(_ event: NSEvent) -> Bool {
+        event.type == .keyDown && event.keyCode == 53
+    }
+
     /// The hold binding and label for a captured press: a key chord or a mouse button.
     static func holdBinding(from event: NSEvent) -> (binding: TriggerBinding, label: String)? {
         switch event.type {

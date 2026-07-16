@@ -68,8 +68,10 @@ struct FieldLabel: View {
 }
 
 /// A machined key: a raised chamber-fill control that seats deeper (ridge) while pressed. The push-button
-/// counterpart to the sidebar's pressed-key selection.
+/// counterpart to the sidebar's pressed-key selection. Dims itself while disabled.
 struct MachinedKeyButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 12, weight: .medium))
@@ -79,5 +81,6 @@ struct MachinedKeyButtonStyle: ButtonStyle {
             .background(RoundedRectangle(cornerRadius: 6).fill(configuration.isPressed ? HUD.ridge : HUD.raised))
             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(HUD.hairline, lineWidth: 1))
             .contentShape(RoundedRectangle(cornerRadius: 6))
+            .opacity(isEnabled ? 1 : 0.55)
     }
 }
