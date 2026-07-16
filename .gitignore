@@ -19,6 +19,7 @@ AGENTS.md
 
 # Release artifacts
 Snip-*.zip
+Snip-*.dmg
 .wrangler/
 
 # Swift / Xcode build artifacts
