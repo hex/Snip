@@ -211,7 +211,7 @@ final class EventTapEngine {
         selection = .none
         openTrigger = trigger
         heldBinding = binding
-        armWatchdog()
+        armWatchdog(for: binding)
         DispatchQueue.main.async { self.onBloom(self.anchor) }
     }
 
@@ -234,28 +234,23 @@ final class EventTapEngine {
     }
 
     /// Ground truth beats our own bookkeeping: if the trigger is genuinely still held, keep waiting.
-    private func armWatchdog() {
+    /// The binding rides into the work item as a captured value: it is constant for the session, and
+    /// the item runs on main while the tap thread owns the stored session state.
+    private func armWatchdog(for binding: TriggerBinding) {
         watchdog?.cancel()
         let item = DispatchWorkItem { [weak self] in
-            guard let self else { return }
+            guard let self, self.openTrigger != nil else { return }
             let stillHeld: Bool
-            switch self.openTrigger {
-            case .key:
-                if let code = self.heldBinding?.keyCode {
-                    stillHeld = CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(code))
-                } else { stillHeld = false }
-            case .mouse:
-                if let button = self.heldBinding?.mouseButtonNumber,
-                   let cgButton = CGMouseButton(rawValue: UInt32(button)) {
-                    stillHeld = CGEventSource.buttonState(.combinedSessionState, button: cgButton)
-                } else {
-                    // Thumb buttons (> 2) have no CGMouseButton case to poll; fall back to closing.
-                    stillHeld = false
-                }
-            case nil:
-                return
+            if let code = binding.keyCode {
+                stillHeld = CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(code))
+            } else if let button = binding.mouseButtonNumber,
+                      let cgButton = CGMouseButton(rawValue: UInt32(button)) {
+                stillHeld = CGEventSource.buttonState(.combinedSessionState, button: cgButton)
+            } else {
+                // Thumb buttons (> 2) have no CGMouseButton case to poll; fall back to closing.
+                stillHeld = false
             }
-            guard !stillHeld else { self.armWatchdog(); return }
+            guard !stillHeld else { self.armWatchdog(for: binding); return }
             self.closeAndCancel()
         }
         watchdog = item
