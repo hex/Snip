@@ -24,13 +24,12 @@ struct LibraryView: View {
     }
 
     /// Tapping an empty wedge creates a blank draft to edit. If it's left with no label and no body,
-    /// drop it when the user moves on, so no phantom "Untitled" is saved. The snippet currently being
-    /// edited (the selection) is always kept.
+    /// drop it when the user moves on, so no phantom "Untitled" is saved. The draft being edited (the
+    /// selection) and the one reserved by the empty-wedge handoff (pendingEditSnippetID) are kept, so
+    /// this never deletes the draft a fire is about to open before the handoff has selected it.
     private func purgeEmptyDrafts() {
-        let keep = selection
-        let before = model.library.snippets.count
-        model.library.snippets.removeAll { $0.id != keep && $0.label.isEmpty && $0.body.isEmpty }
-        if model.library.snippets.count != before { model.save() }
+        let keep = Set([selection, model.pendingEditSnippetID].compactMap { $0 })
+        if model.library.removeEmptyDrafts(keeping: keep) { model.save() }
     }
 
     // MARK: - Detail (editor)
@@ -155,26 +154,38 @@ struct LibraryView: View {
         .onChange(of: model.library) { _, _ in model.save() }
     }
 
-    /// Tokens the snippet expands at paste time, plus the $| caret marker; tapping appends one.
+    /// Tokens the snippet expands at paste time: value tokens ({date}/{time}/{clipboard}), key-sends
+    /// ({enter}/{tab}) that fire a real keystroke, and the $| caret marker. Tapping appends one. The row
+    /// scrolls horizontally so the set can grow without crowding the editor.
     private func tokenShelf(index: Int) -> some View {
-        HStack(spacing: 6) {
-            ForEach(["{date}", "{time}", "{clipboard}", "$|"], id: \.self) { token in
-                Button {
-                    model.library.snippets[index].body += token
-                    model.save()
-                } label: {
-                    Text(token)
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(HUD.textSecondary)
-                        .padding(.horizontal, 8)
-                        .frame(height: 22)
-                        .background(RoundedRectangle(cornerRadius: 6).fill(HUD.chamber))
-                        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(HUD.hairline, lineWidth: 1))
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(["{date}", "{time}", "{clipboard}", "{enter}", "{tab}", "$|"], id: \.self) { token in
+                    Button {
+                        model.library.snippets[index].body += token
+                        model.save()
+                    } label: {
+                        Text(token)
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(HUD.textSecondary)
+                            .padding(.horizontal, 8)
+                            .frame(height: 22)
+                            .background(RoundedRectangle(cornerRadius: 6).fill(HUD.chamber))
+                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(HUD.hairline, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .help(helpText(for: token))
                 }
-                .buttonStyle(.plain)
-                .help("Insert \(token)")
             }
-            Spacer()
+        }
+    }
+
+    private func helpText(for token: String) -> String {
+        switch token {
+        case "{enter}": return "Send a Return keypress (submits in chat apps)"
+        case "{tab}": return "Send a Tab keypress"
+        case "$|": return "Place the cursor here after inserting"
+        default: return "Insert \(token)"
         }
     }
 

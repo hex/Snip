@@ -132,7 +132,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window.contentView = NSHostingView(rootView: MainWindowView(
                 model: model,
                 updater: updater,
-                onConfigChanged: { [weak self] in self?.restartEventTap() },
+                onConfigChanged: { [weak self] in self?.updateRouting() },
                 onRecordingChange: { [weak self] recording in self?.engine?.setPaused(recording) }))
             window.isReleasedWhenClosed = false
             // Resume the tap if the window closes mid-recording, so a paused tap can't get stranded.
@@ -150,6 +150,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func restartEventTap() {
         engine?.stop()
         startEventTap()
+    }
+
+    /// A rule or global-trigger edit swaps the routing live. Unlike restartEventTap (used for a
+    /// permission grant), this keeps the tap thread and its frontmost cache alive, so an edit made
+    /// while Snip's window is frontmost doesn't reset the routed app to nil (the global trigger).
+    private func updateRouting() {
+        engine?.update(routing: model.triggerRouting)
     }
 
     private func startEventTap() {
@@ -172,11 +179,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let snippet = model.snippet(inSlot: index) {
             paster.insert(snippet)
         } else {
-            // Empty wedge: create a snippet for that position and jump straight to editing it.
+            // Empty wedge: create a snippet for that position and jump straight to editing it. Reserve
+            // it for editing BEFORE opening the window, so the library's onAppear purge sees the draft
+            // as pending and spares it instead of deleting the very draft this fire is handing off.
             let id = model.createSnippet(inSlot: index)
+            model.pendingEditSnippetID = id
             openLibrary()
-            // Hand off AFTER the window is key, next runloop tick, so the field focus actually lands.
-            DispatchQueue.main.async { self.model.pendingEditSnippetID = id }
         }
     }
 
