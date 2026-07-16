@@ -7,7 +7,10 @@ final class EventTapEngine {
     /// Stamped onto events we synthesize (paste, arrows) so our own tap passes them through.
     static let magicUserData: Int64 = 0x534E4950   // "SNIP"
 
-    private let routing: TriggerRouting
+    /// Per-app routing, hot-swapped on a rule edit (guarded by `frontmostLock`). Rebuilding the whole
+    /// engine on an edit would reset the frontmost cache to nil while Snip's own window is frontmost,
+    /// which then routes by the global trigger until the next app switch.
+    private var routing: TriggerRouting
     private let permissions: PermissionsCoordinator
     private let onBloom: (CGPoint) -> Void
     private let onPointer: (RadialSelection) -> Void
@@ -103,6 +106,12 @@ final class EventTapEngine {
         return true
     }
 
+    /// Swaps the per-app routing live, without tearing down the tap. A rule edit uses this instead of
+    /// a full restart, so the frontmost cache (and the tap thread) survive the edit.
+    func update(routing: TriggerRouting) {
+        frontmostLock.lock(); self.routing = routing; frontmostLock.unlock()
+    }
+
     /// Pauses/resumes the tap without tearing it down. Settings pauses it while recording a new
     /// binding, so the pressed key/button reaches the recorder instead of being consumed as a trigger.
     func setPaused(_ paused: Bool) {
@@ -129,31 +138,33 @@ final class EventTapEngine {
     // MARK: - Frontmost-app routing
 
     private func observeFrontmost() {
-        updateFrontmost(NSWorkspace.shared.frontmostApplication?.bundleIdentifier)
+        // menuBarOwningApplication, not frontmostApplication: Snip is a menu-bar agent (LSUIElement)
+        // that never owns the menu bar, so this returns the real regular app the user is in even when
+        // Snip's own settings window is frontmost — never Snip itself.
+        updateFrontmost(NSWorkspace.shared.menuBarOwningApplication?.bundleIdentifier)
         activateObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
         ) { [weak self] note in
             let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
             self?.updateFrontmost(app?.bundleIdentifier)
         }
-        // Snip is a menu-bar agent: when its settings window is up and you click straight back to
-        // the app you were in, macOS may not post didActivateApplication for that app, leaving the
-        // routed app stale. Snip resigning active is a reliable signal that you left its window, so
-        // re-read the real frontmost then.
+        // When its settings window is up and you click straight back to the app you were in, macOS may
+        // not post didActivateApplication for that app. Snip resigning active is a reliable signal that
+        // you left its window, so re-read the real menu-bar-owning app then.
         resignObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didResignActiveNotification, object: nil, queue: .main
         ) { [weak self] _ in
             DispatchQueue.main.async {
-                self?.updateFrontmost(NSWorkspace.shared.frontmostApplication?.bundleIdentifier)
+                self?.updateFrontmost(NSWorkspace.shared.menuBarOwningApplication?.bundleIdentifier)
             }
         }
     }
 
-    /// Never route by Snip itself. Its own agent app is frontmost while the settings window is up,
-    /// but the trigger is only ever used in another app; caching self would leave the wrong app
-    /// routed after the window closes.
+    /// Ignore nil (a transient or failed read only ever clobbers a good value) and Snip itself (a
+    /// backstop: menuBarOwningApplication already excludes the agent, but the didActivate observer can
+    /// still report Snip). The trigger is only ever used in another app.
     private func updateFrontmost(_ bundleID: String?) {
-        guard bundleID != selfBundleID else { return }
+        guard let bundleID, bundleID != selfBundleID else { return }
         frontmostLock.lock(); frontmostBundleID = bundleID; frontmostLock.unlock()
     }
 
