@@ -28,9 +28,35 @@ struct MainWindowView: View {
             sidebarRow(.trigger, "Trigger", "cursorarrow.click")
             sidebarRow(.exceptions, "Exceptions", "hand.raised")
             Spacer(minLength: 0)
+            footer
         }
         .padding(.horizontal, 10)
         .frame(width: 176, alignment: .top)
+    }
+
+    /// The etched footer plate at the sidebar's foot: version above, the site below. The build number
+    /// stays off the face and lives in the version's tooltip.
+    private var footer: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Snip \(appVersion)")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(HUD.textTertiary)
+                .help("Build \(buildNumber)")
+            Link("snip.hexul.com", destination: URL(string: "https://snip.hexul.com")!)
+                .font(.system(size: 10))
+                .foregroundStyle(HUD.textTertiary)
+                .help("Open the Snip website")
+        }
+        .padding(.horizontal, 10)
+        .padding(.bottom, 12)
+    }
+
+    private var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
+    }
+
+    private var buildNumber: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "dev"
     }
 
     private func sidebarRow(_ tab: MainTab, _ title: String, _ icon: String) -> some View {

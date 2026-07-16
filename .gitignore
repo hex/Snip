@@ -19,6 +19,7 @@ AGENTS.md
 
 # Release artifacts
 Snip-*.zip
+.wrangler/
 
 # Swift / Xcode build artifacts
 .build/
@@ -42,3 +43,7 @@ Thumbs.db
 *.swp
 *.swo
 *~
+.cs/local/
+.cs/archives/
+.cs/.narrative-reminder-cooldown
+.claude/settings.local.json
