@@ -27,7 +27,7 @@
 - **Magnifying hub** -- the ring's center is a live loupe that magnifies whatever is behind the overlay
 - **Works over fullscreen apps** -- the ring floats above native-fullscreen windows
 - **Ring editor** -- arrange snippets on a visual dial in the library; drag positions to swap them
-- **Per-app exceptions** -- suppress the trigger in apps that need the button (e.g. Blender's orbit)
+- **Per-app rules** -- suppress the trigger in apps that need the button (e.g. Blender's orbit), or open the ring on a different trigger in a specific app
 - **Follows your accent** -- the entire UI keys off the system accent color
 - **Start at login** -- optional login item, toggled in Settings
 - **Auto-update** -- checks for updates via Sparkle, with one-click install from GitHub Releases
@@ -67,7 +67,7 @@ xcodebuild -project Snip.xcodeproj -scheme Snip -configuration Debug build
 
 Snip lives in the menu bar. Set a trigger in Settings (default: hold the middle mouse button). Hold it anywhere, in any app: the ring opens under your cursor. Drag toward a wedge to light it up, release to insert that snippet at the cursor. Release in the middle to cancel.
 
-Open **Settings** from the menu bar icon to manage everything: edit snippet text, assign snippets to ring positions on the dial and drag positions to rearrange, choose your trigger gesture, and set per-app exceptions.
+Open **Settings** from the menu bar icon to manage everything: edit snippet text, assign snippets to ring positions on the dial and drag positions to rearrange, choose your trigger gesture, and set per-app rules (suppress the trigger where it collides, or use a different trigger in that app).
 
 ## Permissions
 

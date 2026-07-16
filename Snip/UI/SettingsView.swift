@@ -1,4 +1,4 @@
-// ABOUTME: The Trigger and Exceptions settings panes, shown as tabs in the single Snip window.
+// ABOUTME: The Trigger and Apps settings panes, shown as tabs in the single Snip window.
 // ABOUTME: Changes persist through AppModel and restart the tap via onConfigChanged.
 import SwiftUI
 import AppKit
@@ -171,33 +171,17 @@ struct TriggerSettingsView: View {
         case .hold:
             if case let .doubleClickMouseButton(n) = model.triggerConfig.binding {
                 model.triggerConfig.binding = .holdMouseButton(n)
-                model.triggerConfig.label = mouseButtonLabel(for: n)
+                model.triggerConfig.label = TriggerCapture.mouseButtonLabel(for: n)
             }
         case .doubleClick:
             switch model.triggerConfig.binding {
             case .holdMouseButton(let n), .doubleClickMouseButton(let n):
                 model.triggerConfig.binding = .doubleClickMouseButton(n)
-                model.triggerConfig.label = mouseButtonLabel(for: n)
+                model.triggerConfig.label = TriggerCapture.mouseButtonLabel(for: n)
             case .holdKey:
                 model.triggerConfig.binding = .doubleClickMouseButton(2)
-                model.triggerConfig.label = mouseButtonLabel(for: 2)
+                model.triggerConfig.label = TriggerCapture.mouseButtonLabel(for: 2)
             }
-        }
-    }
-
-    private func modifierSymbols(for flags: CGEventFlags) -> String {
-        var symbols = ""
-        if flags.contains(.maskControl) { symbols += "⌃" }
-        if flags.contains(.maskAlternate) { symbols += "⌥" }
-        if flags.contains(.maskShift) { symbols += "⇧" }
-        if flags.contains(.maskCommand) { symbols += "⌘" }
-        return symbols
-    }
-
-    private func mouseButtonLabel(for button: Int) -> String {
-        switch button {
-        case 2: return "Middle Button"
-        default: return "Button \(button + 1)"   // buttonNumber is 0-indexed; people count from 1
         }
     }
 
@@ -225,76 +209,52 @@ struct TriggerSettingsView: View {
     private func recordTrigger(from event: NSEvent) {
         cancelRecording()
 
-        let doubleClick = currentGesture == .doubleClick
-        switch event.type {
-        case .keyDown where !doubleClick:
-            let modifiers = cgEventFlags(from: event.modifierFlags)
-            model.triggerConfig.binding = .holdKey(code: Int(event.keyCode), modifierRawValue: modifiers.rawValue)
-            model.triggerConfig.label = modifierSymbols(for: modifiers)
-                + keyLabel(for: event.keyCode, characters: event.charactersIgnoringModifiers)
-        case .otherMouseDown:
-            let button = event.buttonNumber
-            model.triggerConfig.binding = doubleClick ? .doubleClickMouseButton(button) : .holdMouseButton(button)
-            model.triggerConfig.label = mouseButtonLabel(for: button)
-        default:
-            break   // a key in double-click mode: ignored (the mask should exclude it anyway)
-        }
-    }
-
-    private func cgEventFlags(from modifiers: NSEvent.ModifierFlags) -> CGEventFlags {
-        var flags: CGEventFlags = []
-        if modifiers.contains(.command) { flags.insert(.maskCommand) }
-        if modifiers.contains(.option) { flags.insert(.maskAlternate) }
-        if modifiers.contains(.control) { flags.insert(.maskControl) }
-        if modifiers.contains(.shift) { flags.insert(.maskShift) }
-        return flags
-    }
-
-    private func keyLabel(for keyCode: UInt16, characters: String?) -> String {
-        switch keyCode {
-        case 49: return "Space"
-        case 36: return "Return"
-        case 48: return "Tab"
-        case 53: return "Escape"
-        case 51: return "Delete"
-        case 123: return "←"
-        case 124: return "→"
-        case 125: return "↓"
-        case 126: return "↑"
-        default: return characters?.uppercased() ?? "Key \(keyCode)"
+        if currentGesture == .doubleClick {
+            guard event.type == .otherMouseDown else { return }   // the mask should exclude keys anyway
+            model.triggerConfig.binding = .doubleClickMouseButton(event.buttonNumber)
+            model.triggerConfig.label = TriggerCapture.mouseButtonLabel(for: event.buttonNumber)
+        } else if let captured = TriggerCapture.holdBinding(from: event) {
+            model.triggerConfig.binding = captured.binding
+            model.triggerConfig.label = captured.label
         }
     }
 }
 
-// MARK: - Exceptions
+// MARK: - Apps
 
-/// A pickable running app for the suppress list.
+/// A pickable running app for the per-app rules list.
 private struct RunningApp: Identifiable {
     let id: String   // bundle identifier
     let name: String
     let icon: NSImage
 }
 
-struct ExceptionsSettingsView: View {
+struct AppsSettingsView: View {
     @Bindable var model: AppModel
     var onConfigChanged: () -> Void
+    /// Pauses/resumes the event tap so a bound key/button reaches the recorder instead of the ring.
+    var onRecordingChange: (Bool) -> Void
+
+    /// The rule whose Record button is armed; nil when nothing is recording.
+    @State private var recordingBundleID: String?
+    @State private var recordMonitor: Any?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
             VStack(alignment: .leading, spacing: 12) {
-                FieldLabel("SUPPRESS THE TRIGGER IN THESE APPS")
+                FieldLabel("PER-APP RULES")
 
-                if model.ignoredApps.isEmpty {
-                    Text("Snip captures the trigger everywhere. Add apps to let it through — where the trigger already means something (Blender orbit, a browser's new tab).")
+                if model.appRules.isEmpty {
+                    Text("Snip opens on your trigger everywhere. Add an app to change that there: suppress the trigger where it already means something (Blender orbit, a browser's new tab), or open the ring on a different trigger.")
                         .font(.system(size: 13))
                         .foregroundStyle(HUD.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: 520, alignment: .leading)
                 } else {
                     VStack(spacing: 0) {
-                        ForEach(Array(model.ignoredApps.enumerated()), id: \.element.id) { index, app in
+                        ForEach(Array(model.appRules.enumerated()), id: \.element.id) { index, rule in
                             if index > 0 { Divider().overlay(HUD.hairline) }
-                            appRow(app)
+                            ruleRow(rule)
                         }
                     }
                     .background(RoundedRectangle(cornerRadius: 10).fill(HUD.chamber))
@@ -308,17 +268,28 @@ struct ExceptionsSettingsView: View {
         }
         .padding(EdgeInsets(top: 34, leading: 26, bottom: 22, trailing: 26))
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onDisappear { if recordingBundleID != nil { cancelRecording() } }
     }
 
-    private func appRow(_ app: IgnoredApp) -> some View {
+    private func ruleRow(_ rule: AppRule) -> some View {
         HStack(spacing: 10) {
-            Image(nsImage: icon(forBundleID: app.bundleID))
+            Image(nsImage: icon(forBundleID: rule.bundleID))
                 .resizable().frame(width: 18, height: 18)
-            Text(app.name)
+            Text(rule.name)
                 .font(.system(size: 13))
                 .foregroundStyle(HUD.textPrimary)
             Spacer()
-            Button { remove(app) } label: {
+            if case let .trigger(config) = rule.behavior {
+                Text(recordingBundleID == rule.bundleID ? "Press a key or mouse button…" : config.label)
+                    .font(.system(size: 12))
+                    .foregroundStyle(HUD.textTertiary)
+                Button("Record") { startRecording(for: rule.bundleID) }
+                    .buttonStyle(MachinedKeyButtonStyle())
+                    .disabled(recordingBundleID != nil)
+                    .opacity(recordingBundleID == rule.bundleID ? 0.6 : 1)
+            }
+            behaviorMenu(for: rule)
+            Button { remove(rule) } label: {
                 Image(systemName: "minus.circle.fill")
                     .font(.system(size: 13))
                     .foregroundStyle(HUD.textTertiary)
@@ -328,6 +299,61 @@ struct ExceptionsSettingsView: View {
         }
         .padding(.horizontal, 14)
         .frame(height: 46)
+    }
+
+    /// Suppress or a custom trigger. Choosing a custom trigger arms the recorder immediately, so the
+    /// choice flows straight into "press the trigger you want here".
+    private func behaviorMenu(for rule: AppRule) -> some View {
+        Menu {
+            Button("Suppress") { setBehavior(.suppress, for: rule.bundleID) }
+            Button("Custom Trigger") {
+                if case .trigger = rule.behavior { return }
+                setBehavior(.trigger(TriggerConfig()), for: rule.bundleID)
+                startRecording(for: rule.bundleID)
+            }
+        } label: {
+            Text(menuTitle(for: rule.behavior))
+        }
+        .menuStyle(.button)
+        .buttonStyle(MachinedKeyButtonStyle())
+        .fixedSize()
+    }
+
+    private func menuTitle(for behavior: AppBehavior) -> String {
+        switch behavior {
+        case .suppress: return "Suppress"
+        case .trigger: return "Custom Trigger"
+        }
+    }
+
+    private func setBehavior(_ behavior: AppBehavior, for bundleID: String) {
+        guard let index = model.appRules.firstIndex(where: { $0.bundleID == bundleID }) else { return }
+        model.appRules[index].behavior = behavior
+        onConfigChanged()
+    }
+
+    private func startRecording(for bundleID: String) {
+        recordingBundleID = bundleID
+        onRecordingChange(true)   // pause the tap so the pressed input reaches this monitor
+        recordMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .otherMouseDown]) { event in
+            record(event)
+            return nil   // swallow the captured input so it doesn't act on the window
+        }
+    }
+
+    /// Removes the monitor and resumes the tap without recording anything (abandoned recording).
+    private func cancelRecording() {
+        if let recordMonitor { NSEvent.removeMonitor(recordMonitor) }
+        recordMonitor = nil
+        recordingBundleID = nil
+        onRecordingChange(false)
+    }
+
+    private func record(_ event: NSEvent) {
+        guard let bundleID = recordingBundleID else { return }
+        cancelRecording()
+        guard let captured = TriggerCapture.holdBinding(from: event) else { return }
+        setBehavior(.trigger(TriggerConfig(binding: captured.binding, label: captured.label)), for: bundleID)
     }
 
     private var addMenu: some View {
@@ -350,9 +376,9 @@ struct ExceptionsSettingsView: View {
         .fixedSize()
     }
 
-    /// Regular (Dock-showing) apps, minus Snip itself and ones already suppressed.
+    /// Regular (Dock-showing) apps, minus Snip itself and ones that already have a rule.
     private var runningApps: [RunningApp] {
-        let existing = model.ignoredBundleIDs
+        let existing = Set(model.appRules.map(\.bundleID))
         let selfID = Bundle.main.bundleIdentifier
         return NSWorkspace.shared.runningApplications
             .compactMap { app -> RunningApp? in
@@ -377,7 +403,7 @@ struct ExceptionsSettingsView: View {
         panel.allowedContentTypes = [.application]
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
-        panel.prompt = "Suppress"
+        panel.prompt = "Add"
         guard panel.runModal() == .OK, let url = panel.url,
               let bundleID = Bundle(url: url)?.bundleIdentifier else { return }
         let name = FileManager.default.displayName(atPath: url.path)
@@ -385,14 +411,16 @@ struct ExceptionsSettingsView: View {
         add(bundleID: bundleID, name: name)
     }
 
+    /// New rules start as suppress, the choice that needs no further input; the row's menu switches
+    /// it to a custom trigger.
     private func add(bundleID: String, name: String) {
-        guard !model.ignoredApps.contains(where: { $0.bundleID == bundleID }) else { return }
-        model.ignoredApps.append(IgnoredApp(bundleID: bundleID, name: name))
+        guard !model.appRules.contains(where: { $0.bundleID == bundleID }) else { return }
+        model.appRules.append(AppRule(bundleID: bundleID, name: name, behavior: .suppress))
         onConfigChanged()
     }
 
-    private func remove(_ app: IgnoredApp) {
-        model.ignoredApps.removeAll { $0.id == app.id }
+    private func remove(_ rule: AppRule) {
+        model.appRules.removeAll { $0.id == rule.id }
         onConfigChanged()
     }
 }

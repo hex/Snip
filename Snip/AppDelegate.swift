@@ -154,9 +154,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func startEventTap() {
         engine = EventTapEngine(
-            config: model.triggerConfig,
+            routing: model.triggerRouting,
             permissions: permissions,
-            ignoredBundleIDs: model.ignoredBundleIDs,
             onBloom: { [weak self] anchor in self?.overlay.show(atQuartz: anchor) },
             onPointer: { [weak self] selection in self?.overlay.update(selection: selection) },
             onCommit: { [weak self] selection in

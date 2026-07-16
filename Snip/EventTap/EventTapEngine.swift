@@ -1,5 +1,5 @@
-// ABOUTME: Owns the global CGEventTap that detects the user's trigger (held key, held mouse button, or
-// ABOUTME: double-click-and-hold) and streams the drag. Consumes the triggering events; runs off-main.
+// ABOUTME: Owns the global CGEventTap that detects the trigger armed for the app in front (held key,
+// ABOUTME: held mouse button, or double-click-and-hold) and streams the drag. Runs off-main.
 import AppKit
 import SnipKit
 
@@ -7,7 +7,7 @@ final class EventTapEngine {
     /// Stamped onto events we synthesize (paste, arrows) so our own tap passes them through.
     static let magicUserData: Int64 = 0x534E4950   // "SNIP"
 
-    private let config: TriggerConfig
+    private let routing: TriggerRouting
     private let permissions: PermissionsCoordinator
     private let onBloom: (CGPoint) -> Void
     private let onPointer: (RadialSelection) -> Void
@@ -25,28 +25,28 @@ final class EventTapEngine {
     private enum OpenTrigger { case mouse, key }
     private var openTrigger: OpenTrigger?
     private var isOpen: Bool { openTrigger != nil }
+    /// The binding that opened the ring, captured at open so drag/commit tracking and the watchdog
+    /// stay on it even if the frontmost app (and with it the armed binding) changes mid-hold.
+    private var heldBinding: TriggerBinding?
     private var anchor = CGPoint.zero
     private var selection: RadialSelection = .none
     /// If the tap dies mid-hold we never see mouseUp, and the ring would hang on screen forever.
     private var watchdog: DispatchWorkItem?
 
-    // Frontmost-app tracking for the per-app ignore list. NSWorkspace is main-thread AppKit, so the
+    // Frontmost-app tracking for the per-app rules. NSWorkspace is main-thread AppKit, so the
     // frontmost id is cached on main and read (locked) from the tap thread on the hot path.
-    private let ignoreLock = NSLock()
-    private var ignoredBundleIDs: Set<String>
+    private let frontmostLock = NSLock()
     private var frontmostBundleID: String?
     private var workspaceObserver: NSObjectProtocol?
 
-    init(config: TriggerConfig,
+    init(routing: TriggerRouting,
          permissions: PermissionsCoordinator,
-         ignoredBundleIDs: Set<String>,
          onBloom: @escaping (CGPoint) -> Void,
          onPointer: @escaping (RadialSelection) -> Void,
          onCommit: @escaping (RadialSelection) -> Void,
          onCancel: @escaping () -> Void) {
-        self.config = config
+        self.routing = routing
         self.permissions = permissions
-        self.ignoredBundleIDs = ignoredBundleIDs
         self.onBloom = onBloom
         self.onPointer = onPointer
         self.onCommit = onCommit
@@ -120,7 +120,7 @@ final class EventTapEngine {
         workspaceObserver = nil
     }
 
-    // MARK: - Per-app ignore list
+    // MARK: - Frontmost-app routing
 
     private func observeFrontmost() {
         updateFrontmost(NSWorkspace.shared.frontmostApplication?.bundleIdentifier)
@@ -133,13 +133,14 @@ final class EventTapEngine {
     }
 
     private func updateFrontmost(_ bundleID: String?) {
-        ignoreLock.lock(); frontmostBundleID = bundleID; ignoreLock.unlock()
+        frontmostLock.lock(); frontmostBundleID = bundleID; frontmostLock.unlock()
     }
 
-    private var frontmostIsIgnored: Bool {
-        ignoreLock.lock(); defer { ignoreLock.unlock() }
-        guard let id = frontmostBundleID else { return false }
-        return ignoredBundleIDs.contains(id)
+    /// The binding armed for the app in front; nil where a rule suppresses the ring, so every
+    /// trigger event passes through (e.g. Blender orbit, browser new-tab).
+    private var armedBinding: TriggerBinding? {
+        frontmostLock.lock(); defer { frontmostLock.unlock() }
+        return routing.config(for: frontmostBundleID)?.binding
     }
 
     private func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
@@ -155,41 +156,43 @@ final class EventTapEngine {
             return Unmanaged.passUnretained(event)
         }
 
-        let binding = config.binding
+        // Opening matches the binding armed for the app in front; a ring already open tracks the
+        // binding that opened it.
+        let armed = armedBinding
 
         switch type {
         // A bound mouse button opens the ring. A double-click binding waits for the 2nd press
         // (clickState >= 2), so the first single click still reaches the app underneath.
         case .otherMouseDown where openTrigger == nil
-            && binding.mouseDownOpens(button: event.getIntegerValueField(.mouseEventButtonNumber),
-                                      clickState: event.getIntegerValueField(.mouseEventClickState)):
-            // Let the button through in ignored apps (e.g. Blender orbit, browser new-tab).
-            if frontmostIsIgnored { return Unmanaged.passUnretained(event) }
-            beginSession(at: event.location, trigger: .mouse)
+            && armed?.mouseDownOpens(button: event.getIntegerValueField(.mouseEventButtonNumber),
+                                     clickState: event.getIntegerValueField(.mouseEventClickState)) == true:
+            guard let armed else { return Unmanaged.passUnretained(event) }
+            beginSession(at: event.location, trigger: .mouse, binding: armed)
             return nil   // consume: the app underneath never sees the opening press
 
         case .otherMouseDragged where openTrigger == .mouse
-            && binding.isMouseButton(event.getIntegerValueField(.mouseEventButtonNumber)):
+            && heldBinding?.isMouseButton(event.getIntegerValueField(.mouseEventButtonNumber)) == true:
             updateSelection(at: event.location)
             return nil
 
         case .otherMouseUp where openTrigger == .mouse
-            && binding.isMouseButton(event.getIntegerValueField(.mouseEventButtonNumber)):
+            && heldBinding?.isMouseButton(event.getIntegerValueField(.mouseEventButtonNumber)) == true:
             commit()
             return nil
 
         case .keyDown where openTrigger == nil
-            && binding.keyOpens(code: event.getIntegerValueField(.keyboardEventKeycode), flags: event.flags)
-            && event.getIntegerValueField(.keyboardEventAutorepeat) == 0 && !frontmostIsIgnored:
-            beginSession(at: event.location, trigger: .key)
+            && armed?.keyOpens(code: event.getIntegerValueField(.keyboardEventKeycode), flags: event.flags) == true
+            && event.getIntegerValueField(.keyboardEventAutorepeat) == 0:
+            guard let armed else { return Unmanaged.passUnretained(event) }
+            beginSession(at: event.location, trigger: .key, binding: armed)
             return nil   // consume so the key doesn't type
 
         case .keyDown where openTrigger == .key
-            && binding.isKeyCode(event.getIntegerValueField(.keyboardEventKeycode)):
+            && heldBinding?.isKeyCode(event.getIntegerValueField(.keyboardEventKeycode)) == true:
             return nil   // swallow autorepeats of the held key, even if the modifier was let go first
 
         case .keyUp where openTrigger == .key
-            && binding.isKeyCode(event.getIntegerValueField(.keyboardEventKeycode)):
+            && heldBinding?.isKeyCode(event.getIntegerValueField(.keyboardEventKeycode)) == true:
             commit()
             return nil
 
@@ -203,10 +206,11 @@ final class EventTapEngine {
     }
 
     /// Anchors a new drag session under the cursor and blooms the ring.
-    private func beginSession(at location: CGPoint, trigger: OpenTrigger) {
+    private func beginSession(at location: CGPoint, trigger: OpenTrigger, binding: TriggerBinding) {
         anchor = location
         selection = .none
         openTrigger = trigger
+        heldBinding = binding
         armWatchdog()
         DispatchQueue.main.async { self.onBloom(self.anchor) }
     }
@@ -215,6 +219,7 @@ final class EventTapEngine {
     private func commit() {
         let committed = selection
         openTrigger = nil
+        heldBinding = nil
         watchdog?.cancel()
         DispatchQueue.main.async { self.onCommit(committed) }
     }
@@ -236,11 +241,11 @@ final class EventTapEngine {
             let stillHeld: Bool
             switch self.openTrigger {
             case .key:
-                if let code = self.config.binding.keyCode {
+                if let code = self.heldBinding?.keyCode {
                     stillHeld = CGEventSource.keyState(.combinedSessionState, key: CGKeyCode(code))
                 } else { stillHeld = false }
             case .mouse:
-                if let button = self.config.binding.mouseButtonNumber,
+                if let button = self.heldBinding?.mouseButtonNumber,
                    let cgButton = CGMouseButton(rawValue: UInt32(button)) {
                     stillHeld = CGEventSource.buttonState(.combinedSessionState, button: cgButton)
                 } else {
@@ -259,6 +264,7 @@ final class EventTapEngine {
 
     private func closeAndCancel() {
         openTrigger = nil
+        heldBinding = nil
         watchdog?.cancel()
         DispatchQueue.main.async { self.onCancel() }
     }

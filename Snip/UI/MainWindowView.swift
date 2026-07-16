@@ -1,4 +1,4 @@
-// ABOUTME: The single Snip window: a left sidebar (Snippets / Trigger / Exceptions) + the selected pane.
+// ABOUTME: The single Snip window: a left sidebar (Snippets / Trigger / Apps) + the selected pane.
 // ABOUTME: Replaces the separate Library and Settings windows; the solid dark ground is shared by all.
 import SwiftUI
 
@@ -26,7 +26,7 @@ struct MainWindowView: View {
             Color.clear.frame(height: 30)   // clear the window's floating traffic lights
             sidebarRow(.snippets, "Snippets", "text.insert")
             sidebarRow(.trigger, "Trigger", "cursorarrow.click")
-            sidebarRow(.exceptions, "Exceptions", "hand.raised")
+            sidebarRow(.apps, "Apps", "square.grid.2x2")
             Spacer(minLength: 0)
             footer
         }
@@ -95,8 +95,8 @@ struct MainWindowView: View {
             LibraryView(model: model)
         case .trigger:
             TriggerSettingsView(model: model, updater: updater, onConfigChanged: onConfigChanged, onRecordingChange: onRecordingChange)
-        case .exceptions:
-            ExceptionsSettingsView(model: model, onConfigChanged: onConfigChanged)
+        case .apps:
+            AppsSettingsView(model: model, onConfigChanged: onConfigChanged, onRecordingChange: onRecordingChange)
         }
     }
 }
