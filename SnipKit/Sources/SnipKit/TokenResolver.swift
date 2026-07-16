@@ -1,12 +1,28 @@
-// ABOUTME: Resolves a snippet template into final text at fire time.
-// ABOUTME: Expands {date}/{time}/{clipboard} and extracts the $| caret marker (grapheme-aware).
+// ABOUTME: Resolves a snippet template into an ordered fire plan at fire time.
+// ABOUTME: Expands {date}/{time}/{clipboard}, emits {enter}/{tab} as key steps, extracts the $| caret.
 import Foundation
 
+/// A synthesized key press a snippet can emit between text runs. Kept free of CoreGraphics so the
+/// resolver stays platform-agnostic and testable; the app layer maps these to key codes.
+public enum SnippetKey: Equatable {
+    case enter   // Return/Enter — sends in chat apps, where a pasted newline would not
+    case tab
+}
+
+/// One step of a resolved snippet: a run of text to paste, or a key to synthesize. Interleaving lets
+/// "line 1{enter}line 2" paste, press Return (send), then paste again.
+public enum PasteStep: Equatable {
+    case text(String)
+    case key(SnippetKey)
+}
+
 public struct ResolvedSnippet: Equatable {
-    public let text: String
+    public let steps: [PasteStep]
+    /// Graphemes to walk the caret back from the end of the FINAL text run. Non-zero only when the
+    /// $| marker lands in that final run with no key after it (arrows can't cross a committed key).
     public let caretOffsetFromEnd: Int
-    public init(text: String, caretOffsetFromEnd: Int) {
-        self.text = text
+    public init(steps: [PasteStep], caretOffsetFromEnd: Int) {
+        self.steps = steps
         self.caretOffsetFromEnd = caretOffsetFromEnd
     }
 }
@@ -28,23 +44,45 @@ public struct TokenResolver {
     }
 
     public func resolve(_ body: String) -> ResolvedSnippet {
-        // Split at the author's first $| so caret intent survives token expansion.
-        let parts = body.components(separatedBy: "$|")
-        let hasMarker = parts.count > 1
-        let prefix = parts[0]
-        let suffix = hasMarker ? parts.dropFirst().joined(separator: "$|") : ""
+        var steps: [PasteStep] = []
+        var run = ""
+        var caretActive = false
+        var caretSuffixGraphemes = 0
+        var caretInvalidated = false
 
-        let resolvedPrefix = expandTokens(prefix)
-        let resolvedSuffix = expandTokens(suffix)
-        let text = resolvedPrefix + resolvedSuffix
-        let caretOffsetFromEnd = hasMarker ? resolvedSuffix.count : 0
-        return ResolvedSnippet(text: text, caretOffsetFromEnd: caretOffsetFromEnd)
-    }
+        // Flush the pending text run as a step; empty runs (e.g. between two keys) are dropped, never
+        // pasted, so a run of keys doesn't burn empty clipboard writes downstream.
+        func flush() {
+            if !run.isEmpty { steps.append(.text(run)); run = "" }
+        }
+        // Substituted token values and literals both land here; they are never re-scanned for tokens,
+        // so a clipboard containing "{enter}" is pasted verbatim, not turned into a keystroke.
+        func appendText(_ s: String) {
+            run += s
+            if caretActive && !caretInvalidated { caretSuffixGraphemes += s.count }
+        }
+        func appendKey(_ key: SnippetKey) {
+            flush()
+            steps.append(.key(key))
+            if caretActive { caretInvalidated = true }
+        }
 
-    private func expandTokens(_ s: String) -> String {
-        s.replacingOccurrences(of: "{date}", with: formatted(dateStyle: .medium, timeStyle: .none))
-         .replacingOccurrences(of: "{time}", with: formatted(dateStyle: .none, timeStyle: .short))
-         .replacingOccurrences(of: "{clipboard}", with: clipboard() ?? "")
+        var rest = Substring(body)
+        while let ch = rest.first {
+            if rest.hasPrefix("{date}") { appendText(formatted(dateStyle: .medium, timeStyle: .none)); rest = rest.dropFirst("{date}".count); continue }
+            if rest.hasPrefix("{time}") { appendText(formatted(dateStyle: .none, timeStyle: .short)); rest = rest.dropFirst("{time}".count); continue }
+            if rest.hasPrefix("{clipboard}") { appendText(clipboard() ?? ""); rest = rest.dropFirst("{clipboard}".count); continue }
+            if rest.hasPrefix("{enter}") { appendKey(.enter); rest = rest.dropFirst("{enter}".count); continue }
+            if rest.hasPrefix("{return}") { appendKey(.enter); rest = rest.dropFirst("{return}".count); continue }
+            if rest.hasPrefix("{tab}") { appendKey(.tab); rest = rest.dropFirst("{tab}".count); continue }
+            // Only the first $| is the caret marker; later ones fall through as literal text.
+            if !caretActive && rest.hasPrefix("$|") { caretActive = true; rest = rest.dropFirst(2); continue }
+            appendText(String(ch)); rest = rest.dropFirst()
+        }
+        flush()
+
+        let caretOffsetFromEnd = (caretActive && !caretInvalidated) ? caretSuffixGraphemes : 0
+        return ResolvedSnippet(steps: steps, caretOffsetFromEnd: caretOffsetFromEnd)
     }
 
     private func formatted(dateStyle: DateFormatter.Style, timeStyle: DateFormatter.Style) -> String {
