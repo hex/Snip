@@ -51,4 +51,14 @@ public struct SnippetLibrary: Codable, Equatable {
         snippets[source].slot = toSlot
         if let dest, dest != source { snippets[dest].slot = fromSlot }
     }
+
+    /// Drops unlabelled, empty drafts (blank label AND blank body) except those in `ids`, which are
+    /// reserved for editing (the current selection and the pending empty-wedge handoff). Returns
+    /// whether anything was removed, so the caller can skip a save when the library is unchanged.
+    @discardableResult
+    public mutating func removeEmptyDrafts(keeping ids: Set<Snippet.ID>) -> Bool {
+        let before = snippets.count
+        snippets.removeAll { !ids.contains($0.id) && $0.label.isEmpty && $0.body.isEmpty }
+        return snippets.count != before
+    }
 }
