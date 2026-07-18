@@ -38,8 +38,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: ai.symbiotica.Snip
-        MARKETING_VERSION: "2026.7.2"
-        CURRENT_PROJECT_VERSION: "2026071601"
+        MARKETING_VERSION: "2026.7.3"
+        CURRENT_PROJECT_VERSION: "2026071800"
         SWIFT_VERSION: "5.9"
         CODE_SIGN_STYLE: Manual
         CODE_SIGN_IDENTITY: "Developer ID Application"
