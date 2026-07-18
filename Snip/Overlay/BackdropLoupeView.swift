@@ -207,13 +207,20 @@ final class BackdropLoupeView: NSView {
         let cx = Double(w) / 2, cy = Double(h) / 2, radius = Double(w) / 2
         for y in 0..<h {
             for x in 0..<w {
-                let dx = Double(x) + 0.5 - cx, dy = Double(y) + 0.5 - cy
+                // dy is measured upward: the filter samples the mask in the layer's bottom-up
+                // orientation while buffer rows run top-down. Encoding dy downward inverts the
+                // vertical displacement (barrel horizontally, pincushion vertically), which squeezes
+                // the lens content horizontally instead of curving it radially.
+                let dx = Double(x) + 0.5 - cx, dy = cy - (Double(y) + 0.5)
                 let r = (dx * dx + dy * dy).squareRoot() / radius
                 var ux = 0.0, uy = 0.0
                 if r > 1e-4 { ux = dx / (r * radius); uy = dy / (r * radius) }
                 let mag = r * r
-                let sx = 0.5 + 0.5 * mag * ux
-                let sy = 0.5 + 0.5 * mag * uy
+                // Inward sampling: rim pixels draw content from nearer the centre, so magnification
+                // grows toward the rim and the lens bulges like a convex glass. Outward sampling
+                // reads as the opposite (rim de-magnification), which flattens the zoom.
+                let sx = 0.5 - 0.5 * mag * ux
+                let sy = 0.5 - 0.5 * mag * uy
                 let i = (y * w + x) * 4
                 buf[i]     = UInt8((255 * min(1, max(0, sx))).rounded())
                 buf[i + 1] = UInt8((255 * min(1, max(0, sy))).rounded())
