@@ -56,6 +56,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         updater = UpdaterController()
         seedSampleSnippetsIfEmpty()
+        installMainMenu()
         overlay = OverlayPanelController(model: model)   // prewarms the panel + SwiftUI graph
         startEventTap()
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -77,6 +78,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.menu = menu
 
         if !permissions.isTrusted { openOnboarding() }
+    }
+
+    /// A menu-bar agent shows no menu bar, but key equivalents still route through NSApp.mainMenu.
+    /// Without an Edit menu, Cmd+V/C/X/A are dead in every text field, and the emoji palette cannot
+    /// insert — so labels and snippet bodies could only ever receive typed characters.
+    private func installMainMenu() {
+        let main = NSMenu()
+
+        let appItem = NSMenuItem()
+        let appMenu = NSMenu()
+        appMenu.addItem(withTitle: "Quit Snip", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appItem.submenu = appMenu
+        main.addItem(appItem)
+
+        let editItem = NSMenuItem(title: "Edit", action: nil, keyEquivalent: "")
+        let edit = NSMenu(title: "Edit")
+        edit.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        edit.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "Z")
+        edit.addItem(NSMenuItem.separator())
+        edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        edit.addItem(NSMenuItem.separator())
+        edit.addItem(withTitle: "Emoji & Symbols",
+                     action: #selector(NSApplication.orderFrontCharacterPalette(_:)), keyEquivalent: "")
+        editItem.submenu = edit
+        main.addItem(editItem)
+
+        NSApp.mainMenu = main
     }
 
     @objc private func openOnboarding() {
